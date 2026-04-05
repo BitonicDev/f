@@ -5802,11 +5802,33 @@
       };
       _0x226ba6(true);
     }
-    // ihugoihg
-    const autoHatConfig={enabled:!0,baseHat:"Tail",empHat:"EMP",range:750},hatMap={Cow:0,Duck:1,Piggy:2,Bear:3,Pixel:4,Bush:5,Tree:6,Stone:7,EMP:8,Tube:9,Tail:10,Mole:11,Eye:12,Medic:13};let lastEquippedId=-1;function performAutoHat(){if(!autoHatConfig.enabled||!_0x466240)return;let a=!1,t=_0x5a712e;for(let e=0;e<t.length;e++){let o=t[e];if(o.isCannon&&!o.isDead){let i=Math.hypot(o.x-_0x466240.x,o.y-_0x466240.y);if(i<autoHatConfig.range){a=!0;break}}}let n=hatMap[a?autoHatConfig.empHat:autoHatConfig.baseHat];void 0!==n&&n!==lastEquippedId&&(_0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeSkin,n+1])),lastEquippedId=n)}const originalLoop=_0x3c0ef4;_0x3c0ef4=function(){performAutoHat(),originalLoop()};
     window.connect = _0x101619;
     _0x17eee1.style.display = _0x1e6d5b.style.display = 'none';
     _0x2fc9ad.appendChild(_0x3ea805);
     _0x3c0ef4();
+
+
+    (()=>{let e={enabled:!1,baseHatId:11,empId:9,delay:0,lastSwitch:0,currentEquipped:-1},t=["Cow","Duck","Piggy","Bear","Pixel","Bush","Tree","Stone","EMP","Tube","Tail","Mole","Eye","Medic"],a=document.createElement("div");function i(e){let t=_0xca1cdc.ev.find(t=>t.placeBlock===e);return t?(t.cannonRange||450)+75:500}function l(){if(!e.enabled||!_0x466240)return;let t=Date.now();if(t-e.lastSwitch<e.delay)return;let a=!1,l=_0x5a712e;for(let n=0;n<l.length;n++){let o=l[n];if(o.isCannon&&!o.isDead){let d=Math.hypot(o.x-_0x466240.x,o.y-_0x466240.y),r=i(o.type);if(d<=r){a=!0;break}}}let p=a?e.empId:e.baseHatId;p!==e.currentEquipped&&(_0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeSkin,p])),e.currentEquipped=p,e.lastSwitch=t)}function n(){l()}a.id="hat-swap-gui",a.innerHTML=`
+        <div style="background: rgba(0,0,0,0.8); color: #fff; padding: 15px; border: 2px solid #5a5a5a; border-radius: 8px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; pointer-events: all; width: 180px;">
+            <div style="font-weight: bold; margin-bottom: 10px; color: #40d1ff; border-bottom: 1px solid #5a5a5a; padding-bottom: 5px;">POOPOO UTILITIES</div>
+            
+            <div style="margin-bottom: 10px; display: flex; justify-content: space-between;">
+                <label>Auto-Swap</label>
+                <input type="checkbox" id="hat-toggle">
+            </div>
+
+            <div style="margin-bottom: 10px;">
+                <label style="display:block; margin-bottom: 3px;">Base Hat</label>
+                <select id="hat-selection" style="width: 100%; background: #222; color: #fff; border: 1px solid #5a5a5a;">
+                    ${t.map((e,t)=>`<option value="${t+1}" ${"Tail"===e?"selected":""}>${e}</option>`).join("")}
+                </select>
+            </div>
+
+            <div>
+                <label style="display:block; margin-bottom: 3px;">Delay (ms)</label>
+                <input type="number" id="hat-delay" value="0" min="0" step="50" style="width: 90%; background: #222; color: #fff; border: 1px solid #5a5a5a;">
+            </div>
+        </div>
+    `,Object.assign(a.style,{position:"fixed",top:"20px",right:"20px",zIndex:"100000",pointerEvents:"none"}),document.body.appendChild(a),document.getElementById("hat-toggle").onchange=t=>e.enabled=t.target.checked,document.getElementById("hat-selection").onchange=t=>e.baseHatId=parseInt(t.target.value),document.getElementById("hat-delay").oninput=t=>e.delay=parseInt(t.target.value)||0,window.requestAnimationFrame,setInterval(n,1e3/60)})();
   })();
 })();
