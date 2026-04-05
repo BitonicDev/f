@@ -5806,12 +5806,13 @@
     _0x17eee1.style.display = _0x1e6d5b.style.display = 'none';
     _0x2fc9ad.appendChild(_0x3ea805);
     _0x3c0ef4();
-
+// MOD START
 (() => {
     // --- SETTINGS & STATE ---
     const state = {
         swapEnabled: false,
         buyEnabled: false,
+        autoCactus: false,
         baseHatId: 11, 
         empId: 9,      
         delay: 0,
@@ -5820,7 +5821,9 @@
         guiVisible: true,
         // Dragging state
         isDragging: false,
-        dragOffset: { x: 0, y: 0 }
+        dragOffset: { x: 0, y: 0 },
+        // Storage state
+        storageWasOpen: false
     };
 
     const hatList = [
@@ -5832,28 +5835,39 @@
     const style = document.createElement('style');
     style.innerHTML = `
         #utility-gui {
-            position: fixed; top: 100px; right: 20px; width: 220px;
-            background: rgba(15, 15, 15, 0.9); backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px;
-            padding: 0; color: #eee; font-family: 'Inter', sans-serif;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.6); z-index: 1000000;
-            user-select: none; transition: opacity 0.2s ease;
+            position: fixed; top: 120px; right: 30px; width: 250px;
+            background: rgba(18, 18, 22, 0.85); backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px;
+            padding: 0; color: #f0f0f0; font-family: system-ui, -apple-system, sans-serif;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.05);
+            z-index: 1000000; user-select: none; transition: opacity 0.25s ease, transform 0.25s ease;
         }
         #gui-header {
-            padding: 12px 15px; cursor: move; background: rgba(255,255,255,0.05);
-            border-bottom: 1px solid #333; border-radius: 12px 12px 0 0;
-            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 18px; cursor: move; background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid rgba(255,255,255,0.06); border-radius: 14px 14px 0 0;
+            display: flex; justify-content: center; align-items: center;
         }
-        .gui-title { font-size: 11px; font-weight: 900; color: #40d1ff; letter-spacing: 1.5px; text-transform: uppercase; }
-        .gui-content { padding: 15px; }
-        .gui-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 12px; }
-        .gui-label { color: #bbb; font-weight: 500; }
-        .gui-select, .gui-input { background: #111; border: 1px solid #444; color: #fff; border-radius: 4px; padding: 3px 6px; font-size: 11px; outline: none; transition: border 0.2s; }
-        .gui-select:hover, .gui-input:hover { border-color: #666; }
+        .gui-title { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+        .gui-content { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+        .gui-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+        .gui-label { color: #aaa; font-weight: 500; }
+        
+        /* Sleek Toggle Switches */
+        .toggle-switch { position: relative; width: 36px; height: 20px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .3s; border-radius: 20px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.3); }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: #999; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        input:checked + .slider { background-color: rgba(64, 209, 255, 0.2); border: 1px solid rgba(64, 209, 255, 0.5); bottom: -1px; left: -1px; right: -1px; top: -1px;}
+        input:checked + .slider:before { transform: translateX(16px); background-color: #40d1ff; box-shadow: 0 0 8px rgba(64, 209, 255, 0.6); }
+
+        /* Inputs and Selects */
+        .gui-select, .gui-input { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; padding: 4px 8px; font-size: 12px; outline: none; transition: border 0.2s, background 0.2s; cursor: pointer; }
+        .gui-select:hover, .gui-input:hover { border-color: rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); }
         .gui-select:focus { border-color: #40d1ff; }
-        input[type="checkbox"] { cursor: pointer; accent-color: #40d1ff; width: 16px; height: 16px; }
-        .divider { height: 1px; background: #333; margin: 10px 0; }
-        .gui-hint { font-size: 9px; color: #555; text-align: center; margin-top: 5px; }
+        .gui-select option { background: #18181b; color: #fff; }
+        
+        .divider { height: 1px; background: rgba(255,255,255,0.06); margin: 2px 0; }
+        .gui-hint { font-size: 10px; color: #777; text-align: center; margin-top: 4px; font-weight: 500; }
     `;
     document.head.appendChild(style);
 
@@ -5862,16 +5876,28 @@
     gui.innerHTML = `
         <div id="gui-header">
             <span class="gui-title">Utility Panel</span>
-            <div style="width: 8px; height: 8px; border-radius: 50%; background: #40d1ff; box-shadow: 0 0 8px #40d1ff;"></div>
         </div>
         <div class="gui-content">
             <div class="gui-row">
                 <span class="gui-label">Auto-Swap</span>
-                <input type="checkbox" id="swap-toggle">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="swap-toggle">
+                    <span class="slider"></span>
+                </label>
             </div>
             <div class="gui-row">
                 <span class="gui-label">Auto-Buy</span>
-                <input type="checkbox" id="buy-toggle">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="buy-toggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="gui-row">
+                <span class="gui-label">Auto-Cactus (Withdraw)</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="cactus-toggle">
+                    <span class="slider"></span>
+                </label>
             </div>
             <div class="divider"></div>
             <div class="gui-row">
@@ -5882,9 +5908,9 @@
             </div>
             <div class="gui-row">
                 <span class="gui-label">Delay (ms)</span>
-                <input type="number" id="swap-delay" class="gui-input" value="0" min="0" step="50" style="width: 55px;">
+                <input type="number" id="swap-delay" class="gui-input" value="0" min="0" step="50" style="width: 60px;">
             </div>
-            <div class="gui-hint">ALT + K to hide/show</div>
+            <div class="gui-hint">Press ALT + K to toggle menu</div>
         </div>
     `;
     document.body.appendChild(gui);
@@ -5910,14 +5936,22 @@
     window.addEventListener('keydown', (e) => {
         if (e.altKey && e.code === 'KeyK') {
             state.guiVisible = !state.guiVisible;
-            gui.style.opacity = state.guiVisible ? '1' : '0';
-            gui.style.pointerEvents = state.guiVisible ? 'all' : 'none';
+            if (state.guiVisible) {
+                gui.style.opacity = '1';
+                gui.style.transform = 'scale(1)';
+                gui.style.pointerEvents = 'all';
+            } else {
+                gui.style.opacity = '0';
+                gui.style.transform = 'scale(0.95)';
+                gui.style.pointerEvents = 'none';
+            }
         }
     });
 
     // Control Mappings
     document.getElementById('swap-toggle').onchange = (e) => state.swapEnabled = e.target.checked;
     document.getElementById('buy-toggle').onchange = (e) => state.buyEnabled = e.target.checked;
+    document.getElementById('cactus-toggle').onchange = (e) => state.autoCactus = e.target.checked;
     document.getElementById('base-hat-select').onchange = (e) => state.baseHatId = parseInt(e.target.value);
     document.getElementById('swap-delay').oninput = (e) => state.delay = parseInt(e.target.value) || 0;
 
@@ -5972,12 +6006,42 @@
                 state.lastSwitch = now;
             }
         }
+
+        // 3. Auto Cactus (Instant Storage Withdraw)
+        if (state.autoCactus) {
+            const storageUI = document.querySelector('.storage');
+            const isStorageOpen = storageUI && storageUI.classList.contains('show');
+            
+            if (isStorageOpen && !state.storageWasOpen) {
+                const balanceEl = document.querySelector('.storage-balance');
+                if (balanceEl) {
+                    // Helper to scrape DOM values
+                    const getVal = selector => parseInt((balanceEl.querySelector(selector)?.getAttribute('stroke') || '0').replace(/,/g, '')) || 0;
+                    
+                    const food = getVal('.food-count');
+                    const wood = getVal('.wood-count');
+                    const stone = getVal('.stone-count');
+                    const gold = getVal('.gold-count');
+                    
+                    if (food > 0 || wood > 0 || stone > 0 || gold > 0) {
+                        const packet = new DataView(new ArrayBuffer(17));
+                        packet.setUint8(0, _0xca1cdc.wT.iWithdraw); 
+                        packet.setUint32(1, food);
+                        packet.setUint32(5, wood);
+                        packet.setUint32(9, stone);
+                        packet.setUint32(13, gold);
+                        
+                        _0x2d5e24(packet);
+                    }
+                }
+            }
+            state.storageWasOpen = isStorageOpen;
+        }
     }
 
     // Single interval for performance optimization
     setInterval(tick, 1000 / 60);
 })();
-
-    
+// MOD END
   })();
 })();
