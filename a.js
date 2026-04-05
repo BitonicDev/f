@@ -2387,7 +2387,7 @@
       _0x353a89.setAttribute('style', "--color:" + _0x34da17);
       const _0x4148a9 = {
         'nick': _0x262239,
-        'cleanedNick': _0x1e834c,
+        'cleanedNick': _0x262239,
         'score': _0x4c79e8,
         'iScore': 0x0,
         'percent': 0x0,
