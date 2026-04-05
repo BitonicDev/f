@@ -5802,6 +5802,8 @@
       };
       _0x226ba6(true);
     }
+    // ihugoihg
+    const autoHatConfig={enabled:!0,baseHat:"Tail",empHat:"EMP",range:750},hatMap={Cow:0,Duck:1,Piggy:2,Bear:3,Pixel:4,Bush:5,Tree:6,Stone:7,EMP:8,Tube:9,Tail:10,Mole:11,Eye:12,Medic:13};let lastEquippedId=-1;function performAutoHat(){if(!autoHatConfig.enabled||!_0x466240)return;let a=!1,t=_0x5a712e;for(let e=0;e<t.length;e++){let o=t[e];if(o.isCannon&&!o.isDead){let i=Math.hypot(o.x-_0x466240.x,o.y-_0x466240.y);if(i<autoHatConfig.range){a=!0;break}}}let n=hatMap[a?autoHatConfig.empHat:autoHatConfig.baseHat];void 0!==n&&n!==lastEquippedId&&(_0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeSkin,n+1])),lastEquippedId=n)}const originalLoop=_0x3c0ef4;_0x3c0ef4=function(){performAutoHat(),originalLoop()};
     window.connect = _0x101619;
     _0x17eee1.style.display = _0x1e6d5b.style.display = 'none';
     _0x2fc9ad.appendChild(_0x3ea805);
