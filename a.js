@@ -5900,13 +5900,6 @@
                     <span class="slider"></span>
                 </label>
             </div>
-            <div class="gui-row">
-                <span class="gui-label">Auto-Blocker</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="blocker-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
             <div class="divider"></div>
             <div class="gui-row">
                 <span class="gui-label">Main Hat</span>
@@ -5960,7 +5953,6 @@
     document.getElementById('swap-toggle').onchange = (e) => state.swapEnabled = e.target.checked;
     document.getElementById('buy-toggle').onchange = (e) => state.buyEnabled = e.target.checked;
     document.getElementById('cactus-toggle').onchange = (e) => state.autoCactus = e.target.checked;
-    document.getElementById('blocker-toggle').onchange = (e) => state.autoBlocker = e.target.checked;
     document.getElementById('base-hat-select').onchange = (e) => state.baseHatId = parseInt(e.target.value);
     document.getElementById('swap-delay').oninput = (e) => state.delay = parseInt(e.target.value) || 0;
 
@@ -5974,33 +5966,7 @@
         const item = _0xca1cdc.ev.find(i => i.placeBlock === type);
         return (item ? (item.cannonRange || 450) : 450) + 80;
     }
-
-    function getSafeAngle() {
-        const p = _0x466240;
-        const placeDist = 80;
-        const blockerSize = 35; 
-        
-        for (let i = 0; i < 8; i++) {
-            const a = (i * Math.PI) / 4;
-            const tx = p.x + Math.cos(a) * placeDist;
-            const ty = p.y + Math.sin(a) * placeDist;
-            
-            let collision = false;
-            for (let j = 0; j < _0x5a712e.length; j++) {
-                const e = _0x5a712e[j];
-                if (!e.isDead && (e.isStaticObject || e.isPlayer)) {
-                    const dist = Math.hypot(e.x - tx, e.y - ty);
-                    if (dist < e.size + blockerSize) {
-                        collision = true; 
-                        break;
-                    }
-                }
-            }
-            if (!collision) return a;
-        }
-        return null;
-    }
-
+  
     // --- CONSOLIDATED FAST UPDATE ---
     function tick() {
         if (!_0x466240 || _0x466240.isDead) return;
@@ -6083,69 +6049,6 @@
                 }
             }
             state.storageWasOpen = isStorageOpen;
-        }
-
-        // 4. Auto-Blocker (Anti-Explosives)
-        if (state.autoBlocker) {
-            let dangerExplosive = false;
-            let hasBlocker = false;
-
-            for (let i = 0; i < _0x5a712e.length; i++) {
-                const ent = _0x5a712e[i];
-                if (ent.isDead) continue;
-                
-                if (ent.isExplosive) {
-                    let safeDist = 120; // Mine
-                    if (ent.type === _0xca1cdc.gv.bomb) safeDist = 320; // Bomb
-                    if (ent.type === _0xca1cdc.gv.nuke) safeDist = 420; // Nuke
-                    
-                    if (Math.hypot(ent.x - _0x466240.x, ent.y - _0x466240.y) < safeDist) {
-                        dangerExplosive = true;
-                    }
-                }
-
-                if (ent.type === _0xca1cdc.gv.blocker) {
-                    if (Math.hypot(ent.x - _0x466240.x, ent.y - _0x466240.y) < 80) {
-                        hasBlocker = true;
-                    }
-                }
-            }
-
-            // Throttle blocker placement to once every 500ms maximum to save resources
-            if (dangerExplosive && !hasBlocker && (now - state.lastBlockerTime > 500)) {
-                // Ensure we have resources for blocker (40 wood, 20 stone, 250 gold)
-                if (_0x475a45 >= 40 && _0x505bb2 >= 20 && _0x4e3cab >= 250) {
-                    const safeAngle = getSafeAngle();
-                    
-                    if (safeAngle !== null) {
-                        const prevItem = _0x466240.item ? _0x466240.item.id : 0;
-                        
-                        // 1. Point at the safe angle
-                        _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iAngle, _0xca1cdc.eG(safeAngle)]));
-                        
-                        // 2. Select Blocker (ID: 26)
-                        _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeItem, 26]));
-                        
-                        // 3. Send Attack Packet (Combines existing WASD movement with Attack Bit 0x10)
-                        const keyByte = (_0x4cfb62.KeyW || _0x4cfb62.ArrowUp ? 0x1 : 0x0) | 
-                                        (_0x4cfb62.KeyS || _0x4cfb62.ArrowDown ? 0x2 : 0x0) | 
-                                        (_0x4cfb62.KeyA || _0x4cfb62.ArrowLeft ? 0x4 : 0x0) | 
-                                        (_0x4cfb62.KeyD || _0x4cfb62.ArrowRight ? 0x8 : 0x0) | 
-                                        0x10 | 
-                                        (_0x4cfb62.ShiftLeft || _0x4cfb62.ShiftRight ? 0x20 : 0x0) | 
-                                        (_0x4cfb62.mouse2 || _0x5d3d11 ? 0x40 : 0x0);
-                        _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iKeyState, keyByte]));
-                        
-                        // 4. Restore original item seamlessly a fraction of a second later
-                        setTimeout(() => {
-                            _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeItem, prevItem]));
-                        }, 50);
-
-                        state.lastBlockerTime = now;
-                        _0x336d9a("[Auto-Blocker]: Placed protection!");
-                    }
-                }
-            }
         }
     }
 
