@@ -5806,17 +5806,21 @@
     _0x17eee1.style.display = _0x1e6d5b.style.display = 'none';
     _0x2fc9ad.appendChild(_0x3ea805);
     _0x3c0ef4();
+
 (() => {
     // --- SETTINGS & STATE ---
     const state = {
         swapEnabled: false,
         buyEnabled: false,
-        baseHatId: 11, // Default: Tail (Index 10 + 1)
-        empId: 9,      // EMP (Index 8 + 1)
+        baseHatId: 11, 
+        empId: 9,      
         delay: 0,
         lastSwitch: 0,
         currentEquipped: -1,
-        lastBuyAttempt: 0
+        guiVisible: true,
+        // Dragging state
+        isDragging: false,
+        dragOffset: { x: 0, y: 0 }
     };
 
     const hatList = [
@@ -5824,136 +5828,156 @@
         "Stone", "EMP", "Tube", "Tail", "Mole", "Eye", "Medic"
     ];
 
-    // --- GUI DESIGN ---
+    // --- GUI STYLING ---
     const style = document.createElement('style');
     style.innerHTML = `
         #utility-gui {
-            position: fixed; top: 20px; right: 20px; width: 220px;
-            background: rgba(15, 15, 15, 0.85); backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;
-            padding: 15px; color: #eee; font-family: 'Inter', sans-serif;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 999999;
+            position: fixed; top: 100px; right: 20px; width: 220px;
+            background: rgba(15, 15, 15, 0.9); backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px;
+            padding: 0; color: #eee; font-family: 'Inter', sans-serif;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6); z-index: 1000000;
+            user-select: none; transition: opacity 0.2s ease;
         }
-        .gui-title { font-size: 14px; font-weight: 800; color: #40d1ff; letter-spacing: 1px; margin-bottom: 15px; text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        #gui-header {
+            padding: 12px 15px; cursor: move; background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid #333; border-radius: 12px 12px 0 0;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .gui-title { font-size: 11px; font-weight: 900; color: #40d1ff; letter-spacing: 1.5px; text-transform: uppercase; }
+        .gui-content { padding: 15px; }
         .gui-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 12px; }
-        .gui-label { color: #aaa; font-weight: 500; }
-        .gui-select, .gui-input { background: #222; border: 1px solid #444; color: #fff; border-radius: 4px; padding: 2px 5px; font-size: 11px; outline: none; }
-        .gui-select:focus, .gui-input:focus { border-color: #40d1ff; }
-        input[type="checkbox"] { cursor: pointer; accent-color: #40d1ff; }
+        .gui-label { color: #bbb; font-weight: 500; }
+        .gui-select, .gui-input { background: #111; border: 1px solid #444; color: #fff; border-radius: 4px; padding: 3px 6px; font-size: 11px; outline: none; transition: border 0.2s; }
+        .gui-select:hover, .gui-input:hover { border-color: #666; }
+        .gui-select:focus { border-color: #40d1ff; }
+        input[type="checkbox"] { cursor: pointer; accent-color: #40d1ff; width: 16px; height: 16px; }
         .divider { height: 1px; background: #333; margin: 10px 0; }
+        .gui-hint { font-size: 9px; color: #555; text-align: center; margin-top: 5px; }
     `;
     document.head.appendChild(style);
 
     const gui = document.createElement('div');
     gui.id = 'utility-gui';
     gui.innerHTML = `
-        <div class="gui-title">Utility Panel</div>
-        
-        <div class="gui-row">
-            <span class="gui-label">Auto Hat Swap</span>
-            <input type="checkbox" id="swap-toggle">
+        <div id="gui-header">
+            <span class="gui-title">Utility Panel</span>
+            <div style="width: 8px; height: 8px; border-radius: 50%; background: #40d1ff; box-shadow: 0 0 8px #40d1ff;"></div>
         </div>
-
-        <div class="gui-row">
-            <span class="gui-label">Auto Buy Hat</span>
-            <input type="checkbox" id="buy-toggle">
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="gui-row">
-            <span class="gui-label">Main Hat</span>
-            <select id="base-hat-select" class="gui-select">
-                ${hatList.map((name, i) => `<option value="${i+1}" ${name === 'Tail' ? 'selected' : ''}>${name}</option>`).join('')}
-            </select>
-        </div>
-
-        <div class="gui-row">
-            <span class="gui-label">Swap Delay (ms)</span>
-            <input type="number" id="swap-delay" class="gui-input" value="0" min="0" step="50" style="width: 50px;">
+        <div class="gui-content">
+            <div class="gui-row">
+                <span class="gui-label">Auto-Swap</span>
+                <input type="checkbox" id="swap-toggle">
+            </div>
+            <div class="gui-row">
+                <span class="gui-label">Auto-Buy</span>
+                <input type="checkbox" id="buy-toggle">
+            </div>
+            <div class="divider"></div>
+            <div class="gui-row">
+                <span class="gui-label">Main Hat</span>
+                <select id="base-hat-select" class="gui-select">
+                    ${hatList.map((name, i) => `<option value="${i+1}" ${name === 'Tail' ? 'selected' : ''}>${name}</option>`).join('')}
+                </select>
+            </div>
+            <div class="gui-row">
+                <span class="gui-label">Delay (ms)</span>
+                <input type="number" id="swap-delay" class="gui-input" value="0" min="0" step="50" style="width: 55px;">
+            </div>
+            <div class="gui-hint">ALT + K to hide/show</div>
         </div>
     `;
     document.body.appendChild(gui);
 
-    // GUI Listeners
+    // --- GUI LOGIC (DRAGGING / TOGGLES) ---
+    const header = document.getElementById('gui-header');
+    header.addEventListener('mousedown', (e) => {
+        state.isDragging = true;
+        state.dragOffset.x = e.clientX - gui.offsetLeft;
+        state.dragOffset.y = e.clientY - gui.offsetTop;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (state.isDragging) {
+            gui.style.left = (e.clientX - state.dragOffset.x) + 'px';
+            gui.style.top = (e.clientY - state.dragOffset.y) + 'px';
+            gui.style.right = 'auto'; // Reset right-side anchoring
+        }
+    });
+
+    window.addEventListener('mouseup', () => state.isDragging = false);
+
+    window.addEventListener('keydown', (e) => {
+        if (e.altKey && e.code === 'KeyK') {
+            state.guiVisible = !state.guiVisible;
+            gui.style.opacity = state.guiVisible ? '1' : '0';
+            gui.style.pointerEvents = state.guiVisible ? 'all' : 'none';
+        }
+    });
+
+    // Control Mappings
     document.getElementById('swap-toggle').onchange = (e) => state.swapEnabled = e.target.checked;
     document.getElementById('buy-toggle').onchange = (e) => state.buyEnabled = e.target.checked;
     document.getElementById('base-hat-select').onchange = (e) => state.baseHatId = parseInt(e.target.value);
     document.getElementById('swap-delay').oninput = (e) => state.delay = parseInt(e.target.value) || 0;
 
-    // --- HELPER FUNCTIONS ---
-    
+    // --- GAME HELPERS ---
     function isHatOwned(id) {
-        // Checking the internal DOM elements created by the game for ownership status
         const skinEl = _0x5691f4[id - 1];
-        if (!skinEl) return true; 
-        // In the original code, the buy button is hidden (display: none) when owned
-        return skinEl.querySelector('.shop-btn').style.display === 'none';
+        return skinEl ? skinEl.querySelector('.shop-btn').style.display === 'none' : true;
     }
 
-    function getDynamicRange(type) {
-        const itemData = _0xca1cdc.ev.find(item => item.placeBlock === type);
-        if (itemData) {
-            return (itemData.cannonRange || 450) + 80; // Cannon range + buffer
-        }
-        return 500;
+    function getRange(type) {
+        const item = _0xca1cdc.ev.find(i => i.placeBlock === type);
+        return (item ? (item.cannonRange || 450) : 450) + 80;
     }
 
-    // --- CONSOLIDATED UPDATE LOOP ---
-    
-    function updateLoop() {
-        // 1. Core Prerequisites
+    // --- CONSOLIDATED FAST UPDATE ---
+    function tick() {
         if (!_0x466240 || _0x466240.isDead) return;
-
         const now = Date.now();
 
-        // 2. Auto-Buy Logic (Lower frequency check to save resources)
-        if (state.buyEnabled && now - state.lastBuyAttempt > 1000) {
-            state.lastBuyAttempt = now;
+        // 1. High-Frequency Auto-Buy (60fps gold check)
+        if (state.buyEnabled) {
             const hatIndex = state.baseHatId - 1;
             const hatData = _0xca1cdc.WM[hatIndex];
-            
-            if (hatData && !isHatOwned(state.baseHatId)) {
-                if (_0x4e3cab >= hatData.cost) { // _4e3cab is current gold
-                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iBuySkin, hatIndex]));
-                }
+            // Check ownership and gold every frame
+            if (hatData && _0x4e3cab >= hatData.cost && !isHatOwned(state.baseHatId)) {
+                _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iBuySkin, hatIndex]));
             }
         }
 
-        // 3. Auto-Swap Logic
+        // 2. High-Frequency Auto-Swap
         if (state.swapEnabled) {
-            if (now - state.lastSwitch < state.delay) return;
+            // Respect custom delay if user set one
+            if (state.delay > 0 && (now - state.lastSwitch < state.delay)) return;
 
-            let inDanger = false;
-            const entities = _0x5a712e;
-
-            for (let i = 0; i < entities.length; i++) {
-                const ent = entities[i];
+            let danger = false;
+            const ents = _0x5a712e;
+            for (let i = 0; i < ents.length; i++) {
+                const ent = ents[i];
                 if (ent.isCannon && !ent.isDead) {
                     const dist = Math.hypot(ent.x - _0x466240.x, ent.y - _0x466240.y);
-                    if (dist <= getDynamicRange(ent.type)) {
-                        inDanger = true;
+                    if (dist <= getRange(ent.type)) {
+                        danger = true;
                         break;
                     }
                 }
             }
 
-            const target = inDanger ? state.empId : state.baseHatId;
-
-            if (target !== state.currentEquipped) {
-                // Ensure we actually own the hat before trying to equip it
-                if (isHatOwned(target)) {
-                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeSkin, target]));
-                    state.currentEquipped = target;
-                    state.lastSwitch = now;
-                }
+            const target = danger ? state.empId : state.baseHatId;
+            if (target !== state.currentEquipped && isHatOwned(target)) {
+                _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeSkin, target]));
+                state.currentEquipped = target;
+                state.lastSwitch = now;
             }
         }
     }
 
-    // Run loop at 60 FPS
-    setInterval(updateLoop, 1000 / 60);
-
+    // Single interval for performance optimization
+    setInterval(tick, 1000 / 60);
 })();
+
+    
   })();
 })();
