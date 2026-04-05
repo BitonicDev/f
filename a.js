@@ -648,7 +648,7 @@
         'woodCost': 0x3c,
         'stoneCost': 0x3c,
         'goldCost': 0xfa,
-        'desc': "Cuases a small explosion when someone walks over it.",
+        'desc': "Causes a small explosion when someone walks over it.",
         'blockHealth': 0x3,
         'isExplosive': true,
         'explodeRange': 0x64,
