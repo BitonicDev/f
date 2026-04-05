@@ -5813,17 +5813,16 @@
         swapEnabled: false,
         buyEnabled: false,
         autoCactus: false,
-        autoBlocker: false,
         baseHatId: 11, 
         empId: 9,      
         delay: 0,
         lastSwitch: 0,
-        lastBlockerTime: 0,
-        pendingBuy: -1,
         currentEquipped: -1,
         guiVisible: true,
+        // Dragging state
         isDragging: false,
         dragOffset: { x: 0, y: 0 },
+        // Storage state
         storageWasOpen: false
     };
 
@@ -5836,39 +5835,39 @@
     const style = document.createElement('style');
     style.innerHTML = `
         #utility-gui {
-            position: fixed; top: 120px; right: 30px; width: 260px;
-            background: rgba(15, 15, 20, 0.85); backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px;
+            position: fixed; top: 120px; right: 30px; width: 250px;
+            background: rgba(18, 18, 22, 0.85); backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px;
             padding: 0; color: #f0f0f0; font-family: system-ui, -apple-system, sans-serif;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.04);
-            z-index: 1000000; user-select: none; transition: opacity 0.2s ease, transform 0.2s ease;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.05);
+            z-index: 1000000; user-select: none; transition: opacity 0.25s ease, transform 0.25s ease;
         }
         #gui-header {
-            padding: 12px 16px; cursor: move; background: rgba(0, 0, 0, 0.2);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px 12px 0 0;
+            padding: 14px 18px; cursor: move; background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid rgba(255,255,255,0.06); border-radius: 14px 14px 0 0;
             display: flex; justify-content: center; align-items: center;
         }
-        .gui-title { font-size: 13px; font-weight: 600; color: #e0e0e0; letter-spacing: 0.3px; text-transform: uppercase; }
-        .gui-content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+        .gui-title { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+        .gui-content { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
         .gui-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
         .gui-label { color: #aaa; font-weight: 500; }
         
         /* Sleek Toggle Switches */
-        .toggle-switch { position: relative; width: 34px; height: 18px; }
+        .toggle-switch { position: relative; width: 36px; height: 20px; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .3s; border-radius: 20px; }
-        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: #aaa; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background-color: rgba(64, 209, 255, 0.15); border: 1px solid rgba(64, 209, 255, 0.4); bottom: -1px; left: -1px; right: -1px; top: -1px;}
-        input:checked + .slider:before { transform: translateX(16px); background-color: #40d1ff; box-shadow: 0 0 6px rgba(64, 209, 255, 0.5); }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .3s; border-radius: 20px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.3); }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: #999; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        input:checked + .slider { background-color: rgba(64, 209, 255, 0.2); border: 1px solid rgba(64, 209, 255, 0.5); bottom: -1px; left: -1px; right: -1px; top: -1px;}
+        input:checked + .slider:before { transform: translateX(16px); background-color: #40d1ff; box-shadow: 0 0 8px rgba(64, 209, 255, 0.6); }
 
         /* Inputs and Selects */
-        .gui-select, .gui-input { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; padding: 4px 8px; font-size: 12px; outline: none; transition: all 0.2s; cursor: pointer; }
-        .gui-select:hover, .gui-input:hover { border-color: rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); }
+        .gui-select, .gui-input { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; padding: 4px 8px; font-size: 12px; outline: none; transition: border 0.2s, background 0.2s; cursor: pointer; }
+        .gui-select:hover, .gui-input:hover { border-color: rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); }
         .gui-select:focus { border-color: #40d1ff; }
-        .gui-select option { background: #151518; color: #fff; }
+        .gui-select option { background: #18181b; color: #fff; }
         
-        .divider { height: 1px; background: rgba(255,255,255,0.05); margin: 2px 0; }
-        .gui-hint { font-size: 10px; color: #666; text-align: center; margin-top: 4px; font-weight: 500; }
+        .divider { height: 1px; background: rgba(255,255,255,0.06); margin: 2px 0; }
+        .gui-hint { font-size: 10px; color: #777; text-align: center; margin-top: 4px; font-weight: 500; }
     `;
     document.head.appendChild(style);
 
@@ -5894,16 +5893,9 @@
                 </label>
             </div>
             <div class="gui-row">
-                <span class="gui-label">Auto-Cactus</span>
+                <span class="gui-label">Auto-Cactus (Withdraw)</span>
                 <label class="toggle-switch">
                     <input type="checkbox" id="cactus-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="gui-row">
-                <span class="gui-label">Auto-Blocker</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="blocker-toggle">
                     <span class="slider"></span>
                 </label>
             </div>
@@ -5935,7 +5927,7 @@
         if (state.isDragging) {
             gui.style.left = (e.clientX - state.dragOffset.x) + 'px';
             gui.style.top = (e.clientY - state.dragOffset.y) + 'px';
-            gui.style.right = 'auto';
+            gui.style.right = 'auto'; // Reset right-side anchoring
         }
     });
 
@@ -5960,7 +5952,6 @@
     document.getElementById('swap-toggle').onchange = (e) => state.swapEnabled = e.target.checked;
     document.getElementById('buy-toggle').onchange = (e) => state.buyEnabled = e.target.checked;
     document.getElementById('cactus-toggle').onchange = (e) => state.autoCactus = e.target.checked;
-    document.getElementById('blocker-toggle').onchange = (e) => state.autoBlocker = e.target.checked;
     document.getElementById('base-hat-select').onchange = (e) => state.baseHatId = parseInt(e.target.value);
     document.getElementById('swap-delay').oninput = (e) => state.delay = parseInt(e.target.value) || 0;
 
@@ -5975,55 +5966,24 @@
         return (item ? (item.cannonRange || 450) : 450) + 80;
     }
 
-    function getSafeAngle() {
-        const p = _0x466240;
-        const placeDist = 80;
-        const blockerSize = 35; 
-        
-        for (let i = 0; i < 8; i++) {
-            const a = (i * Math.PI) / 4;
-            const tx = p.x + Math.cos(a) * placeDist;
-            const ty = p.y + Math.sin(a) * placeDist;
-            
-            let collision = false;
-            for (let j = 0; j < _0x5a712e.length; j++) {
-                const e = _0x5a712e[j];
-                if (!e.isDead && (e.isStaticObject || e.isPlayer)) {
-                    const dist = Math.hypot(e.x - tx, e.y - ty);
-                    if (dist < e.size + blockerSize) {
-                        collision = true; 
-                        break;
-                    }
-                }
-            }
-            if (!collision) return a;
-        }
-        return null;
-    }
-
     // --- CONSOLIDATED FAST UPDATE ---
     function tick() {
         if (!_0x466240 || _0x466240.isDead) return;
         const now = Date.now();
 
-        // 1. High-Frequency Auto-Buy
+        // 1. High-Frequency Auto-Buy (60fps gold check)
         if (state.buyEnabled) {
             const hatIndex = state.baseHatId - 1;
             const hatData = _0xca1cdc.WM[hatIndex];
-            
+            // Check ownership and gold every frame
             if (hatData && _0x4e3cab >= hatData.cost && !isHatOwned(state.baseHatId)) {
-                if (state.pendingBuy !== state.baseHatId) {
-                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iBuySkin, hatIndex]));
-                    _0x336d9a("[Auto-Buy]: Bought " + hatData.name);
-                    state.pendingBuy = state.baseHatId;
-                }
-            } else if (isHatOwned(state.baseHatId)) {
-                state.pendingBuy = -1;
+                _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iBuySkin, hatIndex]));
             }
         }
 
         // 2. High-Frequency Auto-Swap
         if (state.swapEnabled) {
+            // Respect custom delay if user set one
             if (state.delay > 0 && (now - state.lastSwitch < state.delay)) return;
 
             let danger = false;
@@ -6055,6 +6015,7 @@
             if (isStorageOpen && !state.storageWasOpen) {
                 const balanceEl = document.querySelector('.storage-balance');
                 if (balanceEl) {
+                    // Helper to scrape DOM values
                     const getVal = selector => parseInt((balanceEl.querySelector(selector)?.getAttribute('stroke') || '0').replace(/,/g, '')) || 0;
                     
                     const food = getVal('.food-count');
@@ -6071,84 +6032,14 @@
                         packet.setUint32(13, gold);
                         
                         _0x2d5e24(packet);
-                        
-                        let msg = [];
-                        if (food > 0) msg.push(food + " food");
-                        if (wood > 0) msg.push(wood + " wood");
-                        if (stone > 0) msg.push(stone + " stone");
-                        if (gold > 0) msg.push(gold + " gold");
-                        
-                        _0x336d9a("[Auto-Cactus]: Withdrew " + msg.join(", "));
                     }
                 }
             }
             state.storageWasOpen = isStorageOpen;
         }
-
-        // 4. Auto-Blocker (Anti-Explosives)
-        if (state.autoBlocker) {
-            let dangerExplosive = false;
-            let hasBlocker = false;
-
-            for (let i = 0; i < _0x5a712e.length; i++) {
-                const ent = _0x5a712e[i];
-                if (ent.isDead) continue;
-                
-                if (ent.isExplosive) {
-                    let safeDist = 120; // Mine
-                    if (ent.type === _0xca1cdc.gv.bomb) safeDist = 320; // Bomb
-                    if (ent.type === _0xca1cdc.gv.nuke) safeDist = 420; // Nuke
-                    
-                    if (Math.hypot(ent.x - _0x466240.x, ent.y - _0x466240.y) < safeDist) {
-                        dangerExplosive = true;
-                    }
-                }
-
-                if (ent.type === _0xca1cdc.gv.blocker) {
-                    if (Math.hypot(ent.x - _0x466240.x, ent.y - _0x466240.y) < 80) {
-                        hasBlocker = true;
-                    }
-                }
-            }
-
-            // Throttle blocker placement to once every 500ms maximum to save resources
-            if (dangerExplosive && !hasBlocker && (now - state.lastBlockerTime > 500)) {
-                // Ensure we have resources for blocker (40 wood, 20 stone, 250 gold)
-                if (_0x475a45 >= 40 && _0x505bb2 >= 20 && _0x4e3cab >= 250) {
-                    const safeAngle = getSafeAngle();
-                    
-                    if (safeAngle !== null) {
-                        const prevItem = _0x466240.item ? _0x466240.item.id : 0;
-                        
-                        // 1. Point at the safe angle
-                        _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iAngle, _0xca1cdc.eG(safeAngle)]));
-                        
-                        // 2. Select Blocker (ID: 26)
-                        _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeItem, 26]));
-                        
-                        // 3. Send Attack Packet (Combines existing WASD movement with Attack Bit 0x10)
-                        const keyByte = (_0x4cfb62.KeyW || _0x4cfb62.ArrowUp ? 0x1 : 0x0) | 
-                                        (_0x4cfb62.KeyS || _0x4cfb62.ArrowDown ? 0x2 : 0x0) | 
-                                        (_0x4cfb62.KeyA || _0x4cfb62.ArrowLeft ? 0x4 : 0x0) | 
-                                        (_0x4cfb62.KeyD || _0x4cfb62.ArrowRight ? 0x8 : 0x0) | 
-                                        0x10 | 
-                                        (_0x4cfb62.ShiftLeft || _0x4cfb62.ShiftRight ? 0x20 : 0x0) | 
-                                        (_0x4cfb62.mouse2 || _0x5d3d11 ? 0x40 : 0x0);
-                        _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iKeyState, keyByte]));
-                        
-                        // 4. Restore original item seamlessly a fraction of a second later
-                        setTimeout(() => {
-                            _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeItem, prevItem]));
-                        }, 50);
-
-                        state.lastBlockerTime = now;
-                        _0x336d9a("[Auto-Blocker]: Placed protection!");
-                    }
-                }
-            }
-        }
     }
 
+    // Single interval for performance optimization
     setInterval(tick, 1000 / 60);
 })();
 // MOD END
