@@ -2759,7 +2759,8 @@
     function _0x2a3d9c(_0x143292) {
       const _0x20ff21 = _0x336d9a('', false);
       _0x20ff21.classList.add("hud-btns");
-      _0x20ff21.innerHTML = "\n\t<span stroke=\"" + (_0x143292 || 'Unnamed') + " wants to join your clan\"></span>\n\t<div class=\"btn accept-btn\">\n\t\t<span stroke=\"accept [T]\"></span>\n\t</div>\n\t<div class=\"btn reject-btn\">\n\t\t<span stroke=\"reject [Y]\"></span>\n\t</div>";
+      _0x20ff21.innerHTML = "\n\t<span stroke=\"\"></span>\n\t<div class=\"btn accept-btn\">\n\t\t<span stroke=\"accept [T]\"></span>\n\t</div>\n\t<div class=\"btn reject-btn\">\n\t\t<span stroke=\"reject [Y]\"></span>\n\t</div>";
+      _0x20ff21.children[0].textContent = (_0x143292 || 'Unnamed') + " wants to join your clan";
       let _0x17b625 = false;
       _0x20ff21.children[0x1].onclick = _0x20ff21.children[0x2].onclick = function () {
         if (_0x17b625) {
