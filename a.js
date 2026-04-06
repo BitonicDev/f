@@ -224,7 +224,7 @@
       }, {
         'name': "Tail",
         'cost': 0x3a98,
-        'desc': "You move faster but your damage is reduced",
+        'desc': "You move faster.",
         'dmgFactor': 0x1,
         'moveFactor': 1.4,
         'special': true
@@ -610,7 +610,7 @@
         'foodReward': 0x1,
         'stoneReward': 0x4,
         'goldReward': 0xa,
-        'moveSpeed': 0.9,
+        'moveSpeed': 9.9,
         'uiY': 0xa,
         'uiX': -0x5,
         'uiScale': 0x1,
@@ -648,7 +648,7 @@
         'woodCost': 0x3c,
         'stoneCost': 0x3c,
         'goldCost': 0xfa,
-        'desc': "Explodes when someone walks over it. 200 damage to blocks and 30 damage to players",
+        'desc': "Causes a small explosion when someone walks over it.",
         'blockHealth': 0x3,
         'isExplosive': true,
         'explodeRange': 0x64,
@@ -1109,7 +1109,7 @@
       _0xe09dd7.style.display = '';
     });
     const _0x319b7e = document.createElement("div");
-    const _0x6e5fae = [['Move', "WASD or Arrow Keys"], ["Look Around", "Mouse Move"], ["Auto Attack", 'E'], ["Attack", "Spacebar or Left Click"], ["Chat", "Enter"], ["Sprint", 'Shift'], ["Select Item", "Number Keys 0-9, V, B"], ["Select Food", 'Q'], ["Select Spike", 'R'], ["Select Windmill", 'G'], ["Select Trap", 'C'], ["Show Hitboxes", 'P'], ["Toggle Kill Feed", '/'], ["Expand Minimap", "M or Hover Minimap"], ["Toggle Night Mode", 'L'], ["Toggle Clans", 'J'], ["Toggle Shop", 'H'], ["Accept Clan Join Req", 'T'], ["Reject Clan Join Req", 'Y'], ["Toggle Clan Chat", 'N'], ["Close Dialogs", 'Escape']];
+    const _0x6e5fae = [['Move', "ASWD or Arrow Keys"], ["Look Around", "Mouse Move"], ["Auto Attack", 'E'], ["Attack", "Spacebar or Left Click"], ["Chat", "Enter"], ["Sprint", 'Shift'], ["Select Item", "Number Keys 0-9, V, B"], ["Select Food", 'Q'], ["Select Spike", 'R'], ["Select Windmill", 'G'], ["Select Trap", 'C'], ["Show Hitboxes", 'P'], ["Toggle Kill Feed", '/'], ["Expand Minimap", "M or Hover Minimap"], ["Toggle Night Mode", 'L'], ["Toggle Clans", 'J'], ["Toggle Shop", 'H'], ["Accept Clan Join Req", 'T'], ["Reject Clan Join Req", 'Y'], ["Toggle Clan Chat", 'N'], ["Close Dialogs", 'Escape']];
     const _0x2c03ab = document.querySelector(".leaderboard");
     const _0x3ff515 = _0x2c03ab.querySelector(".dialog-content");
     const _0xcb70fe = document.querySelector(".leaderboard-btn");
@@ -5830,118 +5830,129 @@
         "Stone", "EMP", "Tube", "Tail", "Mole", "Eye", "Medic"
     ];
 
-    // --- GUI STYLING (Utility Panel) ---
+    // --- GUI STYLING ---
     const style = document.createElement('style');
     style.innerHTML = `
         #utility-gui {
-            position: fixed; top: 120px; right: 30px; width: 240px;
+            position: fixed; top: 120px; right: 30px; width: 260px;
             background: rgba(15, 15, 20, 0.85); backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px;
             padding: 0; color: #f0f0f0; font-family: system-ui, -apple-system, sans-serif;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.04);
             z-index: 1000000; user-select: none; transition: opacity 0.2s ease, transform 0.2s ease;
         }
-        #gui-header { padding: 12px; cursor: move; background: rgba(0, 0, 0, 0.2); border-radius: 12px 12px 0 0; display: flex; justify-content: center; }
-        .gui-title { font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
-        .gui-content { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+        #gui-header {
+            padding: 12px 16px; cursor: move; background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px 12px 0 0;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .gui-title { font-size: 13px; font-weight: 600; color: #e0e0e0; letter-spacing: 0.3px; text-transform: uppercase; }
+        .gui-content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
         .gui-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+        .gui-label { color: #aaa; font-weight: 500; }
         
+        /* Sleek Toggle Switches */
         .toggle-switch { position: relative; width: 34px; height: 18px; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .3s; border-radius: 20px; }
-        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: #666; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background-color: rgba(64, 209, 255, 0.2); }
-        input:checked + .slider:before { transform: translateX(16px); background-color: #40d1ff; }
+        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: #aaa; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: rgba(64, 209, 255, 0.15); border: 1px solid rgba(64, 209, 255, 0.4); bottom: -1px; left: -1px; right: -1px; top: -1px;}
+        input:checked + .slider:before { transform: translateX(16px); background-color: #40d1ff; box-shadow: 0 0 6px rgba(64, 209, 255, 0.5); }
 
-        .gui-select, .gui-input { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 4px; padding: 3px 6px; font-size: 12px; outline: none; }
-        .divider { height: 1px; background: rgba(255,255,255,0.05); margin: 4px 0; }
-        .gui-hint { font-size: 10px; color: #555; text-align: center; margin-top: 5px; }
+        /* Inputs and Selects */
+        .gui-select, .gui-input { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; padding: 4px 8px; font-size: 12px; outline: none; transition: all 0.2s; cursor: pointer; }
+        .gui-select:hover, .gui-input:hover { border-color: rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); }
+        .gui-select:focus { border-color: #40d1ff; }
+        .gui-select option { background: #151518; color: #fff; }
+        
+        .divider { height: 1px; background: rgba(255,255,255,0.05); margin: 2px 0; }
+        .gui-hint { font-size: 10px; color: #666; text-align: center; margin-top: 4px; font-weight: 500; }
     `;
     document.head.appendChild(style);
 
     const gui = document.createElement('div');
     gui.id = 'utility-gui';
     gui.innerHTML = `
-        <div id="gui-header"><span class="gui-title">Utilities</span></div>
+        <div id="gui-header">
+            <span class="gui-title">Utility Panel</span>
+        </div>
         <div class="gui-content">
-            <div class="gui-row"><span>Auto-Swap</span><label class="toggle-switch"><input type="checkbox" id="swap-toggle"><span class="slider"></span></label></div>
-            <div class="gui-row"><span>Auto-Buy</span><label class="toggle-switch"><input type="checkbox" id="buy-toggle"><span class="slider"></span></label></div>
-            <div class="gui-row"><span>Auto-Cactus</span><label class="toggle-switch"><input type="checkbox" id="cactus-toggle"><span class="slider"></span></label></div>
+            <div class="gui-row">
+                <span class="gui-label">Auto-Swap</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="swap-toggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="gui-row">
+                <span class="gui-label">Auto-Buy</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="buy-toggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="gui-row">
+                <span class="gui-label">Auto-Cactus</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="cactus-toggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
             <div class="divider"></div>
-            <div class="gui-row"><span>Main Hat</span><select id="base-hat-select" class="gui-select">${hatList.map((name, i) => `<option value="${i+1}" ${name === 'Tail' ? 'selected' : ''}>${name}</option>`).join('')}</select></div>
-            <div class="gui-row"><span>Delay (ms)</span><input type="number" id="swap-delay" class="gui-input" value="0" min="0" step="50" style="width: 50px;"></div>
-            <div class="gui-hint">ALT + K to Hide</div>
+            <div class="gui-row">
+                <span class="gui-label">Main Hat</span>
+                <select id="base-hat-select" class="gui-select">
+                    ${hatList.map((name, i) => `<option value="${i+1}" ${name === 'Tail' ? 'selected' : ''}>${name}</option>`).join('')}
+                </select>
+            </div>
+            <div class="gui-row">
+                <span class="gui-label">Delay (ms)</span>
+                <input type="number" id="swap-delay" class="gui-input" value="0" min="0" step="50" style="width: 60px;">
+            </div>
+            <div class="gui-hint">Press ALT + K to toggle menu</div>
         </div>
     `;
     document.body.appendChild(gui);
 
-    // --- GUI LOGIC ---
+    // --- GUI LOGIC (DRAGGING / TOGGLES) ---
     const header = document.getElementById('gui-header');
     header.addEventListener('mousedown', (e) => {
         state.isDragging = true;
         state.dragOffset.x = e.clientX - gui.offsetLeft;
         state.dragOffset.y = e.clientY - gui.offsetTop;
     });
-    window.addEventListener('mousemove', (e) => { if (state.isDragging) { gui.style.left = (e.clientX - state.dragOffset.x) + 'px'; gui.style.top = (e.clientY - state.dragOffset.y) + 'px'; gui.style.right = 'auto'; } });
-    window.addEventListener('mouseup', () => state.isDragging = false);
-    window.addEventListener('keydown', (e) => { if (e.altKey && e.code === 'KeyK') { state.guiVisible = !state.guiVisible; gui.style.display = state.guiVisible ? 'block' : 'none'; } });
 
+    window.addEventListener('mousemove', (e) => {
+        if (state.isDragging) {
+            gui.style.left = (e.clientX - state.dragOffset.x) + 'px';
+            gui.style.top = (e.clientY - state.dragOffset.y) + 'px';
+            gui.style.right = 'auto';
+        }
+    });
+
+    window.addEventListener('mouseup', () => state.isDragging = false);
+
+    window.addEventListener('keydown', (e) => {
+        if (e.altKey && e.code === 'KeyK') {
+            state.guiVisible = !state.guiVisible;
+            if (state.guiVisible) {
+                gui.style.opacity = '1';
+                gui.style.transform = 'scale(1)';
+                gui.style.pointerEvents = 'all';
+            } else {
+                gui.style.opacity = '0';
+                gui.style.transform = 'scale(0.95)';
+                gui.style.pointerEvents = 'none';
+            }
+        }
+    });
+
+    // Control Mappings
     document.getElementById('swap-toggle').onchange = (e) => state.swapEnabled = e.target.checked;
     document.getElementById('buy-toggle').onchange = (e) => state.buyEnabled = e.target.checked;
     document.getElementById('cactus-toggle').onchange = (e) => state.autoCactus = e.target.checked;
     document.getElementById('base-hat-select').onchange = (e) => state.baseHatId = parseInt(e.target.value);
     document.getElementById('swap-delay').oninput = (e) => state.delay = parseInt(e.target.value) || 0;
-
-    // --- NATIVE UI INJECTION (Custom Server) ---
-    const serverArea = document.querySelector(".server-area");
-    if (serverArea) {
-        const customContainer = document.createElement("div");
-        customContainer.style.width = "100%";
-        customContainer.style.display = "flex";
-        customContainer.style.gap = "8px";
-        customContainer.style.marginTop = "12px";
-        customContainer.style.padding = "0 4px";
-
-        // Input styled like native nickname field
-        const wssInput = document.createElement("input");
-        wssInput.type = "text";
-        wssInput.placeholder = "wss://server-url";
-        wssInput.style.flex = "1";
-        wssInput.style.backgroundColor = "rgba(0, 0, 0, 0.25)";
-        wssInput.style.border = "1px solid rgba(255, 255, 255, 0.1)";
-        wssInput.style.color = "#fff";
-        wssInput.style.borderRadius = "4px";
-        wssInput.style.padding = "8px";
-        wssInput.style.fontSize = "14px";
-        wssInput.style.outline = "none";
-
-        // Native Button
-        const joinBtn = document.createElement("div");
-        joinBtn.className = "btn";
-        joinBtn.style.margin = "0"; 
-        joinBtn.style.backgroundColor = "rgb(135, 163, 255)"; 
-        joinBtn.style.padding = "4px 20px";
-        joinBtn.style.display = "flex";
-        joinBtn.style.alignItems = "center";
-
-        // Native Font Rendering
-        const btnText = document.createElement("span");
-        btnText.setAttribute("stroke", "Connect");
-        joinBtn.appendChild(btnText);
-
-        joinBtn.onclick = () => {
-            const url = wssInput.value.trim();
-            if (url.startsWith("ws://") || url.startsWith("wss://")) {
-                if (typeof window.connect === "function") window.connect(url);
-            }
-        };
-
-        customContainer.appendChild(wssInput);
-        customContainer.appendChild(joinBtn);
-        
-        const totalCountLabel = serverArea.querySelector(".small.full");
-        if (totalCountLabel) serverArea.insertBefore(customContainer, totalCountLabel);
-        else serverArea.appendChild(customContainer);
-    }
 
     // --- GAME HELPERS ---
     function isHatOwned(id) {
@@ -5954,33 +5965,44 @@
         return (item ? (item.cannonRange || 450) : 450) + 80;
     }
   
-    // --- MAIN TICK ---
+    // --- CONSOLIDATED FAST UPDATE ---
     function tick() {
         if (!_0x466240 || _0x466240.isDead) return;
         const now = Date.now();
 
+        // 1. High-Frequency Auto-Buy
         if (state.buyEnabled) {
             const hatIndex = state.baseHatId - 1;
             const hatData = _0xca1cdc.WM[hatIndex];
+            
             if (hatData && _0x4e3cab >= hatData.cost && !isHatOwned(state.baseHatId)) {
                 if (state.pendingBuy !== state.baseHatId) {
                     _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iBuySkin, hatIndex]));
+                    _0x336d9a("[Auto-Buy]: Bought " + hatData.name);
                     state.pendingBuy = state.baseHatId;
                 }
-            } else if (isHatOwned(state.baseHatId)) state.pendingBuy = -1;
+            } else if (isHatOwned(state.baseHatId)) {
+                state.pendingBuy = -1;
+            }
         }
 
+        // 2. High-Frequency Auto-Swap
         if (state.swapEnabled) {
             if (state.delay > 0 && (now - state.lastSwitch < state.delay)) return;
+
             let danger = false;
             const ents = _0x5a712e;
             for (let i = 0; i < ents.length; i++) {
                 const ent = ents[i];
                 if (ent.isCannon && !ent.isDead) {
                     const dist = Math.hypot(ent.x - _0x466240.x, ent.y - _0x466240.y);
-                    if (dist <= getRange(ent.type)) { danger = true; break; }
+                    if (dist <= getRange(ent.type)) {
+                        danger = true;
+                        break;
+                    }
                 }
             }
+
             const target = danger ? state.empId : state.baseHatId;
             if (target !== state.currentEquipped && isHatOwned(target)) {
                 _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeSkin, target]));
@@ -5989,19 +6011,38 @@
             }
         }
 
+        // 3. Auto Cactus (Instant Storage Withdraw)
         if (state.autoCactus) {
             const storageUI = document.querySelector('.storage');
             const isStorageOpen = storageUI && storageUI.classList.contains('show');
+            
             if (isStorageOpen && !state.storageWasOpen) {
                 const balanceEl = document.querySelector('.storage-balance');
                 if (balanceEl) {
-                    const getVal = sel => parseInt((balanceEl.querySelector(sel)?.getAttribute('stroke') || '0').replace(/,/g, '')) || 0;
-                    const food = getVal('.food-count'), wood = getVal('.wood-count'), stone = getVal('.stone-count'), gold = getVal('.gold-count');
+                    const getVal = selector => parseInt((balanceEl.querySelector(selector)?.getAttribute('stroke') || '0').replace(/,/g, '')) || 0;
+                    
+                    const food = getVal('.food-count');
+                    const wood = getVal('.wood-count');
+                    const stone = getVal('.stone-count');
+                    const gold = getVal('.gold-count');
+                    
                     if (food > 0 || wood > 0 || stone > 0 || gold > 0) {
                         const packet = new DataView(new ArrayBuffer(17));
                         packet.setUint8(0, _0xca1cdc.wT.iWithdraw); 
-                        packet.setUint32(1, food); packet.setUint32(5, wood); packet.setUint32(9, stone); packet.setUint32(13, gold);
+                        packet.setUint32(1, food);
+                        packet.setUint32(5, wood);
+                        packet.setUint32(9, stone);
+                        packet.setUint32(13, gold);
+                        
                         _0x2d5e24(packet);
+                        
+                        let msg = [];
+                        if (food > 0) msg.push(food + " food");
+                        if (wood > 0) msg.push(wood + " wood");
+                        if (stone > 0) msg.push(stone + " stone");
+                        if (gold > 0) msg.push(gold + " gold");
+                        
+                        _0x336d9a("[Auto-Cactus]: Withdrew " + msg.join(", "));
                     }
                 }
             }
