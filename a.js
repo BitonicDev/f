@@ -236,7 +236,7 @@
         'canUse': true
       }, {
         'name': "Eye",
-        'cost': 0x4e20,
+        'cost': 0x40,
         'desc': "Increases your view range by 20% and lets you see enemy traps.",
         'viewScale': 1.2,
         'special': true
