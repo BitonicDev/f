@@ -224,7 +224,7 @@
       }, {
         'name': "Tail",
         'cost': 0x3a98,
-        'desc': "You move faster.",
+        'desc': "You move faster but your damage is reduced",
         'dmgFactor': 0x1,
         'moveFactor': 1.4,
         'special': true
@@ -610,7 +610,7 @@
         'foodReward': 0x1,
         'stoneReward': 0x4,
         'goldReward': 0xa,
-        'moveSpeed': 9.9,
+        'moveSpeed': 0.9,
         'uiY': 0xa,
         'uiX': -0x5,
         'uiScale': 0x1,
@@ -648,7 +648,7 @@
         'woodCost': 0x3c,
         'stoneCost': 0x3c,
         'goldCost': 0xfa,
-        'desc': "Causes a small explosion when someone walks over it.",
+        'desc': "Explodes when someone walks over it. 200 damage to blocks and 30 damage to players",
         'blockHealth': 0x3,
         'isExplosive': true,
         'explodeRange': 0x64,
@@ -1109,7 +1109,7 @@
       _0xe09dd7.style.display = '';
     });
     const _0x319b7e = document.createElement("div");
-    const _0x6e5fae = [['Move', "ASWD or Arrow Keys"], ["Look Around", "Mouse Move"], ["Auto Attack", 'E'], ["Attack", "Spacebar or Left Click"], ["Chat", "Enter"], ["Sprint", 'Shift'], ["Select Item", "Number Keys 0-9, V, B"], ["Select Food", 'Q'], ["Select Spike", 'R'], ["Select Windmill", 'G'], ["Select Trap", 'C'], ["Show Hitboxes", 'P'], ["Toggle Kill Feed", '/'], ["Expand Minimap", "M or Hover Minimap"], ["Toggle Night Mode", 'L'], ["Toggle Clans", 'J'], ["Toggle Shop", 'H'], ["Accept Clan Join Req", 'T'], ["Reject Clan Join Req", 'Y'], ["Toggle Clan Chat", 'N'], ["Close Dialogs", 'Escape']];
+    const _0x6e5fae = [['Move', "WASD or Arrow Keys"], ["Look Around", "Mouse Move"], ["Auto Attack", 'E'], ["Attack", "Spacebar or Left Click"], ["Chat", "Enter"], ["Sprint", 'Shift'], ["Select Item", "Number Keys 0-9, V, B"], ["Select Food", 'Q'], ["Select Spike", 'R'], ["Select Windmill", 'G'], ["Select Trap", 'C'], ["Show Hitboxes", 'P'], ["Toggle Kill Feed", '/'], ["Expand Minimap", "M or Hover Minimap"], ["Toggle Night Mode", 'L'], ["Toggle Clans", 'J'], ["Toggle Shop", 'H'], ["Accept Clan Join Req", 'T'], ["Reject Clan Join Req", 'Y'], ["Toggle Clan Chat", 'N'], ["Close Dialogs", 'Escape']];
     const _0x2c03ab = document.querySelector(".leaderboard");
     const _0x3ff515 = _0x2c03ab.querySelector(".dialog-content");
     const _0xcb70fe = document.querySelector(".leaderboard-btn");
@@ -5862,7 +5862,7 @@
         /* Inputs and Selects */
         .gui-select, .gui-input { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; padding: 4px 8px; font-size: 12px; outline: none; transition: all 0.2s; cursor: pointer; }
         .gui-select:hover, .gui-input:hover { border-color: rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); }
-        .gui-select:focus { border-color: #40d1ff; }
+        .gui-select:focus, .gui-input:focus { border-color: #40d1ff; cursor: text; }
         .gui-select option { background: #151518; color: #fff; }
         
         .divider { height: 1px; background: rgba(255,255,255,0.05); margin: 2px 0; }
@@ -5909,6 +5909,18 @@
                 <span class="gui-label">Delay (ms)</span>
                 <input type="number" id="swap-delay" class="gui-input" value="0" min="0" step="50" style="width: 60px;">
             </div>
+
+            <div class="divider"></div>
+            
+            <!-- Mid-Game Custom Server Connection -->
+            <div class="gui-row" style="flex-direction: column; align-items: flex-start; gap: 6px;">
+                <span class="gui-label">Custom Server</span>
+                <div style="display: flex; gap: 5px; width: 100%;">
+                    <input type="text" id="custom-wss-input" class="gui-input" placeholder="wss://..." style="flex: 1; min-width: 0;">
+                    <button id="custom-wss-btn" class="gui-input" style="background: rgba(64, 209, 255, 0.2); color: #40d1ff; font-weight: bold;">Join</button>
+                </div>
+            </div>
+
             <div class="gui-hint">Press ALT + K to toggle menu</div>
         </div>
     `;
@@ -5953,6 +5965,70 @@
     document.getElementById('cactus-toggle').onchange = (e) => state.autoCactus = e.target.checked;
     document.getElementById('base-hat-select').onchange = (e) => state.baseHatId = parseInt(e.target.value);
     document.getElementById('swap-delay').oninput = (e) => state.delay = parseInt(e.target.value) || 0;
+
+    // --- NATIVE MENU CUSTOM SERVER INJECTION ---
+    const serverArea = document.querySelector(".server-area");
+    if (serverArea) {
+        const customServerWrapper = document.createElement('div');
+        customServerWrapper.style.marginTop = "15px";
+        customServerWrapper.style.display = "flex";
+        customServerWrapper.style.flexDirection = "column";
+        customServerWrapper.style.gap = "6px";
+
+        const customInput = document.createElement('input');
+        customInput.type = "text";
+        customInput.placeholder = "wss://...";
+        customInput.style.width = "100%";
+        customInput.style.padding = "10px";
+        customInput.style.borderRadius = "8px";
+        customInput.style.border = "2px solid rgba(255, 255, 255, 0.1)";
+        customInput.style.background = "rgba(0, 0, 0, 0.4)";
+        customInput.style.color = "#fff";
+        customInput.style.fontSize = "16px";
+        customInput.style.fontFamily = "inherit";
+        customInput.style.textAlign = "center";
+        customInput.style.outline = "none";
+        customInput.style.transition = "all 0.2s";
+        
+        customInput.addEventListener('focus', () => customInput.style.borderColor = "#40d1ff");
+        customInput.addEventListener('blur', () => customInput.style.borderColor = "rgba(255, 255, 255, 0.1)");
+
+        const customBtn = document.createElement('div');
+        customBtn.className = "btn"; // Inherit native game button styles
+        customBtn.style.backgroundColor = "rgb(255, 80, 120)"; // Unique color
+        
+        const customText = document.createElement('span');
+        customText.setAttribute('stroke', 'Custom Server');
+        customBtn.appendChild(customText);
+
+        customBtn.onclick = function() {
+            const url = customInput.value.trim();
+            if (url.startsWith('wss://') || url.startsWith('ws://')) {
+                const active = serverArea.querySelector('.active');
+                if (active) active.classList.remove('active');
+                this.classList.add('active');
+                if (typeof window.connect === 'function') window.connect(url);
+            } else {
+                alert('Invalid URL! Must start with wss:// or ws://');
+            }
+        };
+
+        customServerWrapper.appendChild(customInput);
+        customServerWrapper.appendChild(customBtn);
+        serverArea.appendChild(customServerWrapper);
+    }
+
+    // --- UTILITY MENU CUSTOM SERVER ACTION ---
+    document.getElementById('custom-wss-btn').addEventListener('click', () => {
+        const url = document.getElementById('custom-wss-input').value.trim();
+        if (url.startsWith('wss://') || url.startsWith('ws://')) {
+            if (typeof window.connect === 'function') {
+                window.connect(url);
+            }
+        } else {
+            alert('Invalid URL! Must start with wss:// or ws://');
+        }
+    });
 
     // --- GAME HELPERS ---
     function isHatOwned(id) {
