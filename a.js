@@ -5828,7 +5828,8 @@
         guiVisible: true,
         isDragging: false,
         dragOffset: { x: 0, y: 0 },
-        storageWasOpen: false
+        storageWasOpen: false,
+        activeKeys: new Set()
     };
 
     const hatList = [
@@ -5840,6 +5841,20 @@
         "Apple": 4,
         "Cookie": 19
     };
+
+    // --- KEYBOARD TRACKING (Fixes movement interruption) ---
+    window.addEventListener('keydown', (e) => state.activeKeys.add(e.code));
+    window.addEventListener('keyup', (e) => state.activeKeys.delete(e.code));
+
+    function getMovementBitmask() {
+        let mask = 0;
+        if (state.activeKeys.has('KeyW') || state.activeKeys.has('ArrowUp')) mask |= 0x1;
+        if (state.activeKeys.has('KeyS') || state.activeKeys.has('ArrowDown')) mask |= 0x2;
+        if (state.activeKeys.has('KeyA') || state.activeKeys.has('ArrowLeft')) mask |= 0x4;
+        if (state.activeKeys.has('KeyD') || state.activeKeys.has('ArrowRight')) mask |= 0x8;
+        if (state.activeKeys.has('ShiftLeft') || state.activeKeys.has('ShiftRight')) mask |= 0x20;
+        return mask;
+    }
 
     // --- GUI STYLING ---
     const style = document.createElement('style');
@@ -5870,10 +5885,7 @@
         input:checked + .slider:before { transform: translateX(16px); background-color: #40d1ff; box-shadow: 0 0 6px rgba(64, 209, 255, 0.5); }
 
         .gui-select, .gui-input { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; padding: 4px 8px; font-size: 12px; outline: none; transition: all 0.2s; cursor: pointer; }
-        .gui-select:hover, .gui-input:hover { border-color: rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); }
-        .gui-select:focus { border-color: #40d1ff; }
         .gui-select option { background: #151518; color: #fff; }
-        
         .divider { height: 1px; background: rgba(255,255,255,0.05); margin: 2px 0; }
         .gui-hint { font-size: 10px; color: #666; text-align: center; margin-top: 4px; font-weight: 500; }
     `;
@@ -5897,7 +5909,6 @@
     `;
     document.body.appendChild(gui);
 
-    // --- GUI LOGIC ---
     const header = document.getElementById('gui-header');
     header.onmousedown = (e) => {
         state.isDragging = true;
@@ -5928,7 +5939,6 @@
     document.getElementById('cactus-toggle').onchange = (e) => state.autoCactus = e.target.checked;
     document.getElementById('hat-sel').onchange = (e) => state.baseHatId = parseInt(e.target.value);
 
-    // --- HELPERS ---
     function isOwned(id) {
         const el = _0x5691f4[id - 1];
         return el ? el.querySelector('.shop-btn').style.display === 'none' : true;
@@ -5939,6 +5949,7 @@
         if (!_0x466240 || _0x466240.isDead) return;
         const now = Date.now();
         const currentHP = _0x466240.health * 100;
+        const moveBits = getMovementBitmask();
 
         // 1. Auto-Heal & Weapon Recovery
         if (state.autoHeal) {
@@ -5947,23 +5958,28 @@
                     state.preHealWeapon = _0x466240.item.id;
                     state.isHealing = true;
                 }
-                // Equips food and trigger attack
-                _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeItem, foodIds[state.foodType]]));
-                _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iKeyState, 0x10])); 
+                const foodId = foodIds[state.foodType];
+                // Switch to food if not holding it
+                if (_0x466240.item.id !== foodId) {
+                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeItem, foodId]));
+                }
+                // Send KeyState with move bits + attack bit (0x10) to eat
+                _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iKeyState, moveBits | 0x10])); 
                 state.lastBelowThreshold = now;
             } else {
-                // HP is safe, check for switchback after 100ms
                 if (state.isHealing && (now - state.lastBelowThreshold > 100)) {
+                    // Recover previous weapon
                     if (state.preHealWeapon !== -1) {
                         _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeItem, state.preHealWeapon]));
                     }
-                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iKeyState, 0x00])); // Release attack
+                    // Sync movement state and release attack bit
+                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iKeyState, moveBits]));
                     state.isHealing = false;
                 }
             }
         }
 
-        // 2. Auto-Buy (with Alerts)
+        // 2. Auto-Buy
         if (state.buyEnabled) {
             const hIdx = state.baseHatId - 1;
             const hData = _0xca1cdc.WM[hIdx];
@@ -5978,7 +5994,7 @@
             }
         }
 
-        // 3. Auto-Swap (Cannon Defense)
+        // 3. Auto-Swap
         if (state.swapEnabled) {
             let danger = false;
             for (let i = 0; i < _0x5a712e.length; i++) {
@@ -5996,7 +6012,7 @@
             }
         }
 
-        // 4. Auto Cactus (with Alerts)
+        // 4. Auto Cactus
         if (state.autoCactus) {
             const sUI = document.querySelector('.storage');
             const isOpen = sUI && sUI.classList.contains('show');
