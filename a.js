@@ -5820,6 +5820,9 @@
         empId: 9,      
         delay: 0,
         lastSwitch: 0,
+        lastBelowThreshold: 0,
+        preHealWeapon: -1,
+        isHealing: false,
         pendingBuy: -1,
         currentEquipped: -1,
         guiVisible: true,
@@ -5855,7 +5858,7 @@
             display: flex; justify-content: center; align-items: center;
         }
         .gui-title { font-size: 13px; font-weight: 600; color: #e0e0e0; letter-spacing: 0.3px; text-transform: uppercase; }
-        .gui-content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+        .gui-content { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
         .gui-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
         .gui-label { color: #aaa; font-weight: 500; }
         
@@ -5879,60 +5882,16 @@
     const gui = document.createElement('div');
     gui.id = 'utility-gui';
     gui.innerHTML = `
-        <div id="gui-header">
-            <span class="gui-title">Utility Panel</span>
-        </div>
+        <div id="gui-header"><span class="gui-title">Utility Panel</span></div>
         <div class="gui-content">
-            <div class="gui-row">
-                <span class="gui-label">Auto-Heal</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="heal-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="gui-row">
-                <span class="gui-label">Auto-Swap</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="swap-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="gui-row">
-                <span class="gui-label">Auto-Buy</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="buy-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="gui-row">
-                <span class="gui-label">Auto-Cactus</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="cactus-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
+            <div class="gui-row"><span class="gui-label">Auto-Heal</span><label class="toggle-switch"><input type="checkbox" id="heal-toggle"><span class="slider"></span></label></div>
+            <div class="gui-row"><span class="gui-label">Auto-Swap</span><label class="toggle-switch"><input type="checkbox" id="swap-toggle"><span class="slider"></span></label></div>
+            <div class="gui-row"><span class="gui-label">Auto-Buy</span><label class="toggle-switch"><input type="checkbox" id="buy-toggle"><span class="slider"></span></label></div>
+            <div class="gui-row"><span class="gui-label">Auto-Cactus</span><label class="toggle-switch"><input type="checkbox" id="cactus-toggle"><span class="slider"></span></label></div>
             <div class="divider"></div>
-            <div class="gui-row">
-                <span class="gui-label">Heal Tolerance</span>
-                <input type="number" id="heal-tolerance" class="gui-input" value="90" min="1" max="100" style="width: 60px;">
-            </div>
-            <div class="gui-row">
-                <span class="gui-label">Food Type</span>
-                <select id="food-type-select" class="gui-select">
-                    <option value="Apple" selected>Apple</option>
-                    <option value="Cookie">Cookie</option>
-                </select>
-            </div>
-            <div class="gui-row">
-                <span class="gui-label">Main Hat</span>
-                <select id="base-hat-select" class="gui-select">
-                    ${hatList.map((name, i) => `<option value="${i+1}" ${name === 'Tail' ? 'selected' : ''}>${name}</option>`).join('')}
-                </select>
-            </div>
-            <div class="gui-row">
-                <span class="gui-label">Delay (ms)</span>
-                <input type="number" id="swap-delay" class="gui-input" value="0" min="0" step="50" style="width: 60px;">
-            </div>
+            <div class="gui-row"><span class="gui-label">Tolerance</span><input type="number" id="heal-tol" class="gui-input" value="90" min="1" max="100" style="width: 50px;"></div>
+            <div class="gui-row"><span class="gui-label">Food</span><select id="food-sel" class="gui-select"><option value="Apple">Apple</option><option value="Cookie">Cookie</option></select></div>
+            <div class="gui-row"><span class="gui-label">Main Hat</span><select id="hat-sel" class="gui-select">${hatList.map((n, i) => `<option value="${i+1}" ${n === 'Tail' ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
             <div class="gui-hint">Press ALT + K to toggle menu</div>
         </div>
     `;
@@ -5940,123 +5899,123 @@
 
     // --- GUI LOGIC ---
     const header = document.getElementById('gui-header');
-    header.addEventListener('mousedown', (e) => {
+    header.onmousedown = (e) => {
         state.isDragging = true;
         state.dragOffset.x = e.clientX - gui.offsetLeft;
         state.dragOffset.y = e.clientY - gui.offsetTop;
-    });
-
-    window.addEventListener('mousemove', (e) => {
+    };
+    window.onmousemove = (e) => {
         if (state.isDragging) {
             gui.style.left = (e.clientX - state.dragOffset.x) + 'px';
             gui.style.top = (e.clientY - state.dragOffset.y) + 'px';
             gui.style.right = 'auto';
         }
-    });
-
-    window.addEventListener('mouseup', () => state.isDragging = false);
-
-    window.addEventListener('keydown', (e) => {
+    };
+    window.onmouseup = () => state.isDragging = false;
+    window.onkeydown = (e) => {
         if (e.altKey && e.code === 'KeyK') {
             state.guiVisible = !state.guiVisible;
             gui.style.opacity = state.guiVisible ? '1' : '0';
-            gui.style.transform = state.guiVisible ? 'scale(1)' : 'scale(0.95)';
             gui.style.pointerEvents = state.guiVisible ? 'all' : 'none';
         }
-    });
+    };
 
     document.getElementById('heal-toggle').onchange = (e) => state.autoHeal = e.target.checked;
-    document.getElementById('heal-tolerance').oninput = (e) => state.healTolerance = parseInt(e.target.value) || 90;
-    document.getElementById('food-type-select').onchange = (e) => state.foodType = e.target.value;
+    document.getElementById('heal-tol').oninput = (e) => state.healTolerance = parseInt(e.target.value) || 90;
+    document.getElementById('food-sel').onchange = (e) => state.foodType = e.target.value;
     document.getElementById('swap-toggle').onchange = (e) => state.swapEnabled = e.target.checked;
     document.getElementById('buy-toggle').onchange = (e) => state.buyEnabled = e.target.checked;
     document.getElementById('cactus-toggle').onchange = (e) => state.autoCactus = e.target.checked;
-    document.getElementById('base-hat-select').onchange = (e) => state.baseHatId = parseInt(e.target.value);
-    document.getElementById('swap-delay').oninput = (e) => state.delay = parseInt(e.target.value) || 0;
+    document.getElementById('hat-sel').onchange = (e) => state.baseHatId = parseInt(e.target.value);
 
-    // --- GAME HELPERS ---
-    function isHatOwned(id) {
-        const skinEl = _0x5691f4[id - 1];
-        return skinEl ? skinEl.querySelector('.shop-btn').style.display === 'none' : true;
+    // --- HELPERS ---
+    function isOwned(id) {
+        const el = _0x5691f4[id - 1];
+        return el ? el.querySelector('.shop-btn').style.display === 'none' : true;
     }
 
-    function getRange(type) {
-        const item = _0xca1cdc.ev.find(i => i.placeBlock === type);
-        return (item ? (item.cannonRange || 450) : 450) + 80;
-    }
-  
-    // --- CONSOLIDATED TICK (60FPS) ---
+    // --- MAIN TICK (60FPS) ---
     function tick() {
         if (!_0x466240 || _0x466240.isDead) return;
         const now = Date.now();
+        const currentHP = _0x466240.health * 100;
 
-        // 1. Auto-Heal
-        if (state.autoHeal && _0x466240.health * 100 < state.healTolerance) {
-            const foodId = foodIds[state.foodType];
-            // Select Food
-            _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeItem, foodId]));
-            // Use (Attack Bit 0x10)
-            _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iKeyState, 0x10]));
-            // Release Use
-            _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iKeyState, 0x00]));
+        // 1. Auto-Heal & Weapon Recovery
+        if (state.autoHeal) {
+            if (currentHP < state.healTolerance) {
+                if (!state.isHealing) {
+                    state.preHealWeapon = _0x466240.item.id;
+                    state.isHealing = true;
+                }
+                // Equips food and trigger attack
+                _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeItem, foodIds[state.foodType]]));
+                _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iKeyState, 0x10])); 
+                state.lastBelowThreshold = now;
+            } else {
+                // HP is safe, check for switchback after 100ms
+                if (state.isHealing && (now - state.lastBelowThreshold > 100)) {
+                    if (state.preHealWeapon !== -1) {
+                        _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeItem, state.preHealWeapon]));
+                    }
+                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iKeyState, 0x00])); // Release attack
+                    state.isHealing = false;
+                }
+            }
         }
 
-        // 2. Auto-Buy
+        // 2. Auto-Buy (with Alerts)
         if (state.buyEnabled) {
-            const hatIndex = state.baseHatId - 1;
-            const hatData = _0xca1cdc.WM[hatIndex];
-            if (hatData && _0x4e3cab >= hatData.cost && !isHatOwned(state.baseHatId)) {
+            const hIdx = state.baseHatId - 1;
+            const hData = _0xca1cdc.WM[hIdx];
+            if (hData && _0x4e3cab >= hData.cost && !isOwned(state.baseHatId)) {
                 if (state.pendingBuy !== state.baseHatId) {
-                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iBuySkin, hatIndex]));
+                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iBuySkin, hIdx]));
+                    _0x336d9a("[Auto-Buy]: Purchased " + hData.name);
                     state.pendingBuy = state.baseHatId;
                 }
-            } else if (isHatOwned(state.baseHatId)) {
+            } else if (isOwned(state.baseHatId)) {
                 state.pendingBuy = -1;
             }
         }
 
-        // 3. Auto-Swap (Anti-Cannon)
+        // 3. Auto-Swap (Cannon Defense)
         if (state.swapEnabled) {
-            if (!(state.delay > 0 && (now - state.lastSwitch < state.delay))) {
-                let danger = false;
-                const ents = _0x5a712e;
-                for (let i = 0; i < ents.length; i++) {
-                    const ent = ents[i];
-                    if (ent.isCannon && !ent.isDead) {
-                        const dist = Math.hypot(ent.x - _0x466240.x, ent.y - _0x466240.y);
-                        if (dist <= getRange(ent.type)) {
-                            danger = true;
-                            break;
-                        }
-                    }
+            let danger = false;
+            for (let i = 0; i < _0x5a712e.length; i++) {
+                const ent = _0x5a712e[i];
+                if (ent.isCannon && !ent.isDead) {
+                    const d = Math.hypot(ent.x - _0x466240.x, ent.y - _0x466240.y);
+                    const r = (_0xca1cdc.ev.find(it => it.placeBlock === ent.type)?.cannonRange || 450) + 80;
+                    if (d <= r) { danger = true; break; }
                 }
-                const target = danger ? state.empId : state.baseHatId;
-                if (target !== state.currentEquipped && isHatOwned(target)) {
-                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeSkin, target]));
-                    state.currentEquipped = target;
-                    state.lastSwitch = now;
-                }
+            }
+            const target = danger ? state.empId : state.baseHatId;
+            if (target !== state.currentEquipped && isOwned(target)) {
+                _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeSkin, target]));
+                state.currentEquipped = target;
             }
         }
 
-        // 4. Auto Cactus
+        // 4. Auto Cactus (with Alerts)
         if (state.autoCactus) {
-            const storageUI = document.querySelector('.storage');
-            const isStorageOpen = storageUI && storageUI.classList.contains('show');
-            if (isStorageOpen && !state.storageWasOpen) {
-                const balanceEl = document.querySelector('.storage-balance');
-                if (balanceEl) {
-                    const getVal = selector => parseInt((balanceEl.querySelector(selector)?.getAttribute('stroke') || '0').replace(/,/g, '')) || 0;
-                    const food = getVal('.food-count'), wood = getVal('.wood-count'), stone = getVal('.stone-count'), gold = getVal('.gold-count');
-                    if (food > 0 || wood > 0 || stone > 0 || gold > 0) {
-                        const packet = new DataView(new ArrayBuffer(17));
-                        packet.setUint8(0, _0xca1cdc.wT.iWithdraw); 
-                        packet.setUint32(1, food); packet.setUint32(5, wood); packet.setUint32(9, stone); packet.setUint32(13, gold);
-                        _0x2d5e24(packet);
+            const sUI = document.querySelector('.storage');
+            const isOpen = sUI && sUI.classList.contains('show');
+            if (isOpen && !state.storageWasOpen) {
+                const bal = document.querySelector('.storage-balance');
+                if (bal) {
+                    const gV = s => parseInt((bal.querySelector(s)?.getAttribute('stroke') || '0').replace(/,/g, '')) || 0;
+                    const f = gV('.food-count'), w = gV('.wood-count'), s = gV('.stone-count'), g = gV('.gold-count');
+                    if (f > 0 || w > 0 || s > 0 || g > 0) {
+                        const p = new DataView(new ArrayBuffer(17));
+                        p.setUint8(0, _0xca1cdc.wT.iWithdraw); p.setUint32(1, f); p.setUint32(5, w); p.setUint32(9, s); p.setUint32(13, g);
+                        _0x2d5e24(p);
+                        let m = [];
+                        if (f > 0) m.push(f + " food"); if (w > 0) m.push(w + " wood"); if (s > 0) m.push(s + " stone"); if (g > 0) m.push(g + " gold");
+                        _0x336d9a("[Auto-Cactus]: Withdrew " + m.join(", "));
                     }
                 }
             }
-            state.storageWasOpen = isStorageOpen;
+            state.storageWasOpen = isOpen;
         }
     }
 
