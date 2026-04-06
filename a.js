@@ -5830,205 +5830,118 @@
         "Stone", "EMP", "Tube", "Tail", "Mole", "Eye", "Medic"
     ];
 
-    // --- GUI STYLING ---
+    // --- GUI STYLING (Utility Panel) ---
     const style = document.createElement('style');
     style.innerHTML = `
         #utility-gui {
-            position: fixed; top: 120px; right: 30px; width: 260px;
+            position: fixed; top: 120px; right: 30px; width: 240px;
             background: rgba(15, 15, 20, 0.85); backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px;
             padding: 0; color: #f0f0f0; font-family: system-ui, -apple-system, sans-serif;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.04);
             z-index: 1000000; user-select: none; transition: opacity 0.2s ease, transform 0.2s ease;
         }
-        #gui-header {
-            padding: 12px 16px; cursor: move; background: rgba(0, 0, 0, 0.2);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px 12px 0 0;
-            display: flex; justify-content: center; align-items: center;
-        }
-        .gui-title { font-size: 13px; font-weight: 600; color: #e0e0e0; letter-spacing: 0.3px; text-transform: uppercase; }
-        .gui-content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+        #gui-header { padding: 12px; cursor: move; background: rgba(0, 0, 0, 0.2); border-radius: 12px 12px 0 0; display: flex; justify-content: center; }
+        .gui-title { font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+        .gui-content { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
         .gui-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-        .gui-label { color: #aaa; font-weight: 500; }
         
-        /* Sleek Toggle Switches */
         .toggle-switch { position: relative; width: 34px; height: 18px; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .3s; border-radius: 20px; }
-        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: #aaa; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background-color: rgba(64, 209, 255, 0.15); border: 1px solid rgba(64, 209, 255, 0.4); bottom: -1px; left: -1px; right: -1px; top: -1px;}
-        input:checked + .slider:before { transform: translateX(16px); background-color: #40d1ff; box-shadow: 0 0 6px rgba(64, 209, 255, 0.5); }
+        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: #666; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: rgba(64, 209, 255, 0.2); }
+        input:checked + .slider:before { transform: translateX(16px); background-color: #40d1ff; }
 
-        /* Inputs and Selects */
-        .gui-select, .gui-input { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; padding: 4px 8px; font-size: 12px; outline: none; transition: all 0.2s; cursor: pointer; }
-        .gui-select:hover, .gui-input:hover { border-color: rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); }
-        .gui-select:focus, .gui-input:focus { border-color: #40d1ff; cursor: text; }
-        .gui-select option { background: #151518; color: #fff; }
-        
-        .divider { height: 1px; background: rgba(255,255,255,0.05); margin: 2px 0; }
-        .gui-hint { font-size: 10px; color: #666; text-align: center; margin-top: 4px; font-weight: 500; }
+        .gui-select, .gui-input { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 4px; padding: 3px 6px; font-size: 12px; outline: none; }
+        .divider { height: 1px; background: rgba(255,255,255,0.05); margin: 4px 0; }
+        .gui-hint { font-size: 10px; color: #555; text-align: center; margin-top: 5px; }
     `;
     document.head.appendChild(style);
 
     const gui = document.createElement('div');
     gui.id = 'utility-gui';
     gui.innerHTML = `
-        <div id="gui-header">
-            <span class="gui-title">Utility Panel</span>
-        </div>
+        <div id="gui-header"><span class="gui-title">Utilities</span></div>
         <div class="gui-content">
-            <div class="gui-row">
-                <span class="gui-label">Auto-Swap</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="swap-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="gui-row">
-                <span class="gui-label">Auto-Buy</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="buy-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="gui-row">
-                <span class="gui-label">Auto-Cactus</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="cactus-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
+            <div class="gui-row"><span>Auto-Swap</span><label class="toggle-switch"><input type="checkbox" id="swap-toggle"><span class="slider"></span></label></div>
+            <div class="gui-row"><span>Auto-Buy</span><label class="toggle-switch"><input type="checkbox" id="buy-toggle"><span class="slider"></span></label></div>
+            <div class="gui-row"><span>Auto-Cactus</span><label class="toggle-switch"><input type="checkbox" id="cactus-toggle"><span class="slider"></span></label></div>
             <div class="divider"></div>
-            <div class="gui-row">
-                <span class="gui-label">Main Hat</span>
-                <select id="base-hat-select" class="gui-select">
-                    ${hatList.map((name, i) => `<option value="${i+1}" ${name === 'Tail' ? 'selected' : ''}>${name}</option>`).join('')}
-                </select>
-            </div>
-            <div class="gui-row">
-                <span class="gui-label">Delay (ms)</span>
-                <input type="number" id="swap-delay" class="gui-input" value="0" min="0" step="50" style="width: 60px;">
-            </div>
-
-            <div class="divider"></div>
-            
-            <!-- Mid-Game Custom Server Connection -->
-            <div class="gui-row" style="flex-direction: column; align-items: flex-start; gap: 6px;">
-                <span class="gui-label">Custom Server</span>
-                <div style="display: flex; gap: 5px; width: 100%;">
-                    <input type="text" id="custom-wss-input" class="gui-input" placeholder="wss://..." style="flex: 1; min-width: 0;">
-                    <button id="custom-wss-btn" class="gui-input" style="background: rgba(64, 209, 255, 0.2); color: #40d1ff; font-weight: bold;">Join</button>
-                </div>
-            </div>
-
-            <div class="gui-hint">Press ALT + K to toggle menu</div>
+            <div class="gui-row"><span>Main Hat</span><select id="base-hat-select" class="gui-select">${hatList.map((name, i) => `<option value="${i+1}" ${name === 'Tail' ? 'selected' : ''}>${name}</option>`).join('')}</select></div>
+            <div class="gui-row"><span>Delay (ms)</span><input type="number" id="swap-delay" class="gui-input" value="0" min="0" step="50" style="width: 50px;"></div>
+            <div class="gui-hint">ALT + K to Hide</div>
         </div>
     `;
     document.body.appendChild(gui);
 
-    // --- GUI LOGIC (DRAGGING / TOGGLES) ---
+    // --- GUI LOGIC ---
     const header = document.getElementById('gui-header');
     header.addEventListener('mousedown', (e) => {
         state.isDragging = true;
         state.dragOffset.x = e.clientX - gui.offsetLeft;
         state.dragOffset.y = e.clientY - gui.offsetTop;
     });
-
-    window.addEventListener('mousemove', (e) => {
-        if (state.isDragging) {
-            gui.style.left = (e.clientX - state.dragOffset.x) + 'px';
-            gui.style.top = (e.clientY - state.dragOffset.y) + 'px';
-            gui.style.right = 'auto';
-        }
-    });
-
+    window.addEventListener('mousemove', (e) => { if (state.isDragging) { gui.style.left = (e.clientX - state.dragOffset.x) + 'px'; gui.style.top = (e.clientY - state.dragOffset.y) + 'px'; gui.style.right = 'auto'; } });
     window.addEventListener('mouseup', () => state.isDragging = false);
+    window.addEventListener('keydown', (e) => { if (e.altKey && e.code === 'KeyK') { state.guiVisible = !state.guiVisible; gui.style.display = state.guiVisible ? 'block' : 'none'; } });
 
-    window.addEventListener('keydown', (e) => {
-        if (e.altKey && e.code === 'KeyK') {
-            state.guiVisible = !state.guiVisible;
-            if (state.guiVisible) {
-                gui.style.opacity = '1';
-                gui.style.transform = 'scale(1)';
-                gui.style.pointerEvents = 'all';
-            } else {
-                gui.style.opacity = '0';
-                gui.style.transform = 'scale(0.95)';
-                gui.style.pointerEvents = 'none';
-            }
-        }
-    });
-
-    // Control Mappings
     document.getElementById('swap-toggle').onchange = (e) => state.swapEnabled = e.target.checked;
     document.getElementById('buy-toggle').onchange = (e) => state.buyEnabled = e.target.checked;
     document.getElementById('cactus-toggle').onchange = (e) => state.autoCactus = e.target.checked;
     document.getElementById('base-hat-select').onchange = (e) => state.baseHatId = parseInt(e.target.value);
     document.getElementById('swap-delay').oninput = (e) => state.delay = parseInt(e.target.value) || 0;
 
-    // --- NATIVE MENU CUSTOM SERVER INJECTION ---
+    // --- NATIVE UI INJECTION (Custom Server) ---
     const serverArea = document.querySelector(".server-area");
     if (serverArea) {
-        const customServerWrapper = document.createElement('div');
-        customServerWrapper.style.marginTop = "15px";
-        customServerWrapper.style.display = "flex";
-        customServerWrapper.style.flexDirection = "column";
-        customServerWrapper.style.gap = "6px";
+        const customContainer = document.createElement("div");
+        customContainer.style.width = "100%";
+        customContainer.style.display = "flex";
+        customContainer.style.gap = "8px";
+        customContainer.style.marginTop = "12px";
+        customContainer.style.padding = "0 4px";
 
-        const customInput = document.createElement('input');
-        customInput.type = "text";
-        customInput.placeholder = "wss://...";
-        customInput.style.width = "100%";
-        customInput.style.padding = "10px";
-        customInput.style.borderRadius = "8px";
-        customInput.style.border = "2px solid rgba(255, 255, 255, 0.1)";
-        customInput.style.background = "rgba(0, 0, 0, 0.4)";
-        customInput.style.color = "#fff";
-        customInput.style.fontSize = "16px";
-        customInput.style.fontFamily = "inherit";
-        customInput.style.textAlign = "center";
-        customInput.style.outline = "none";
-        customInput.style.transition = "all 0.2s";
-        
-        customInput.addEventListener('focus', () => customInput.style.borderColor = "#40d1ff");
-        customInput.addEventListener('blur', () => customInput.style.borderColor = "rgba(255, 255, 255, 0.1)");
+        // Input styled like native nickname field
+        const wssInput = document.createElement("input");
+        wssInput.type = "text";
+        wssInput.placeholder = "wss://server-url";
+        wssInput.style.flex = "1";
+        wssInput.style.backgroundColor = "rgba(0, 0, 0, 0.25)";
+        wssInput.style.border = "1px solid rgba(255, 255, 255, 0.1)";
+        wssInput.style.color = "#fff";
+        wssInput.style.borderRadius = "4px";
+        wssInput.style.padding = "8px";
+        wssInput.style.fontSize = "14px";
+        wssInput.style.outline = "none";
 
-        const customBtn = document.createElement('div');
-        customBtn.className = "btn"; // Inherit native game button styles
-        customBtn.style.backgroundColor = "rgb(255, 80, 120)"; // Unique color
-        
-        const customText = document.createElement('span');
-        customText.setAttribute('stroke', 'Custom Server');
-        customBtn.appendChild(customText);
+        // Native Button
+        const joinBtn = document.createElement("div");
+        joinBtn.className = "btn";
+        joinBtn.style.margin = "0"; 
+        joinBtn.style.backgroundColor = "rgb(135, 163, 255)"; 
+        joinBtn.style.padding = "4px 20px";
+        joinBtn.style.display = "flex";
+        joinBtn.style.alignItems = "center";
 
-        customBtn.onclick = function() {
-            const url = customInput.value.trim();
-            if (url.startsWith('wss://') || url.startsWith('ws://')) {
-                const active = serverArea.querySelector('.active');
-                if (active) active.classList.remove('active');
-                this.classList.add('active');
-                if (typeof window.connect === 'function') window.connect(url);
-            } else {
-                alert('Invalid URL! Must start with wss:// or ws://');
+        // Native Font Rendering
+        const btnText = document.createElement("span");
+        btnText.setAttribute("stroke", "Connect");
+        joinBtn.appendChild(btnText);
+
+        joinBtn.onclick = () => {
+            const url = wssInput.value.trim();
+            if (url.startsWith("ws://") || url.startsWith("wss://")) {
+                if (typeof window.connect === "function") window.connect(url);
             }
         };
 
-        customServerWrapper.appendChild(customInput);
-        customServerWrapper.appendChild(customBtn);
-        serverArea.appendChild(customServerWrapper);
+        customContainer.appendChild(wssInput);
+        customContainer.appendChild(joinBtn);
+        
+        const totalCountLabel = serverArea.querySelector(".small.full");
+        if (totalCountLabel) serverArea.insertBefore(customContainer, totalCountLabel);
+        else serverArea.appendChild(customContainer);
     }
-
-    // --- UTILITY MENU CUSTOM SERVER ACTION ---
-    document.getElementById('custom-wss-btn').addEventListener('click', () => {
-        const url = document.getElementById('custom-wss-input').value.trim();
-        if (url.startsWith('wss://') || url.startsWith('ws://')) {
-            if (typeof window.connect === 'function') {
-                window.connect(url);
-            }
-        } else {
-            alert('Invalid URL! Must start with wss:// or ws://');
-        }
-    });
 
     // --- GAME HELPERS ---
     function isHatOwned(id) {
@@ -6041,44 +5954,33 @@
         return (item ? (item.cannonRange || 450) : 450) + 80;
     }
   
-    // --- CONSOLIDATED FAST UPDATE ---
+    // --- MAIN TICK ---
     function tick() {
         if (!_0x466240 || _0x466240.isDead) return;
         const now = Date.now();
 
-        // 1. High-Frequency Auto-Buy
         if (state.buyEnabled) {
             const hatIndex = state.baseHatId - 1;
             const hatData = _0xca1cdc.WM[hatIndex];
-            
             if (hatData && _0x4e3cab >= hatData.cost && !isHatOwned(state.baseHatId)) {
                 if (state.pendingBuy !== state.baseHatId) {
                     _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iBuySkin, hatIndex]));
-                    _0x336d9a("[Auto-Buy]: Bought " + hatData.name);
                     state.pendingBuy = state.baseHatId;
                 }
-            } else if (isHatOwned(state.baseHatId)) {
-                state.pendingBuy = -1;
-            }
+            } else if (isHatOwned(state.baseHatId)) state.pendingBuy = -1;
         }
 
-        // 2. High-Frequency Auto-Swap
         if (state.swapEnabled) {
             if (state.delay > 0 && (now - state.lastSwitch < state.delay)) return;
-
             let danger = false;
             const ents = _0x5a712e;
             for (let i = 0; i < ents.length; i++) {
                 const ent = ents[i];
                 if (ent.isCannon && !ent.isDead) {
                     const dist = Math.hypot(ent.x - _0x466240.x, ent.y - _0x466240.y);
-                    if (dist <= getRange(ent.type)) {
-                        danger = true;
-                        break;
-                    }
+                    if (dist <= getRange(ent.type)) { danger = true; break; }
                 }
             }
-
             const target = danger ? state.empId : state.baseHatId;
             if (target !== state.currentEquipped && isHatOwned(target)) {
                 _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeSkin, target]));
@@ -6087,38 +5989,19 @@
             }
         }
 
-        // 3. Auto Cactus (Instant Storage Withdraw)
         if (state.autoCactus) {
             const storageUI = document.querySelector('.storage');
             const isStorageOpen = storageUI && storageUI.classList.contains('show');
-            
             if (isStorageOpen && !state.storageWasOpen) {
                 const balanceEl = document.querySelector('.storage-balance');
                 if (balanceEl) {
-                    const getVal = selector => parseInt((balanceEl.querySelector(selector)?.getAttribute('stroke') || '0').replace(/,/g, '')) || 0;
-                    
-                    const food = getVal('.food-count');
-                    const wood = getVal('.wood-count');
-                    const stone = getVal('.stone-count');
-                    const gold = getVal('.gold-count');
-                    
+                    const getVal = sel => parseInt((balanceEl.querySelector(sel)?.getAttribute('stroke') || '0').replace(/,/g, '')) || 0;
+                    const food = getVal('.food-count'), wood = getVal('.wood-count'), stone = getVal('.stone-count'), gold = getVal('.gold-count');
                     if (food > 0 || wood > 0 || stone > 0 || gold > 0) {
                         const packet = new DataView(new ArrayBuffer(17));
                         packet.setUint8(0, _0xca1cdc.wT.iWithdraw); 
-                        packet.setUint32(1, food);
-                        packet.setUint32(5, wood);
-                        packet.setUint32(9, stone);
-                        packet.setUint32(13, gold);
-                        
+                        packet.setUint32(1, food); packet.setUint32(5, wood); packet.setUint32(9, stone); packet.setUint32(13, gold);
                         _0x2d5e24(packet);
-                        
-                        let msg = [];
-                        if (food > 0) msg.push(food + " food");
-                        if (wood > 0) msg.push(wood + " wood");
-                        if (stone > 0) msg.push(stone + " stone");
-                        if (gold > 0) msg.push(gold + " gold");
-                        
-                        _0x336d9a("[Auto-Cactus]: Withdrew " + msg.join(", "));
                     }
                 }
             }
