@@ -236,7 +236,7 @@
         'canUse': true
       }, {
         'name': "Eye",
-        'cost': 0x40,
+        'cost': 0x4e20,
         'desc': "Increases your view range by 20% and lets you see enemy traps.",
         'viewScale': 1.2,
         'special': true
@@ -610,7 +610,7 @@
         'foodReward': 0x1,
         'stoneReward': 0x4,
         'goldReward': 0xa,
-        'moveSpeed': 0.9,
+        'moveSpeed': 9.9,
         'uiY': 0xa,
         'uiX': -0x5,
         'uiScale': 0x1,
@@ -5813,48 +5813,22 @@
         swapEnabled: false,
         buyEnabled: false,
         autoCactus: false,
-        autoHeal: false,
-        healTolerance: 90,
-        foodType: "Apple",
         baseHatId: 11, 
         empId: 9,      
         delay: 0,
         lastSwitch: 0,
-        lastBelowThreshold: 0,
-        preHealWeapon: -1,
-        isHealing: false,
         pendingBuy: -1,
         currentEquipped: -1,
         guiVisible: true,
         isDragging: false,
         dragOffset: { x: 0, y: 0 },
-        storageWasOpen: false,
-        activeKeys: new Set()
+        storageWasOpen: false
     };
 
     const hatList = [
         "Cow", "Duck", "Piggy", "Bear", "Pixel", "Bush", "Tree", 
         "Stone", "EMP", "Tube", "Tail", "Mole", "Eye", "Medic"
     ];
-
-    const foodIds = {
-        "Apple": 4,
-        "Cookie": 19
-    };
-
-    // --- KEYBOARD TRACKING (Fixes movement interruption) ---
-    window.addEventListener('keydown', (e) => state.activeKeys.add(e.code));
-    window.addEventListener('keyup', (e) => state.activeKeys.delete(e.code));
-
-    function getMovementBitmask() {
-        let mask = 0;
-        if (state.activeKeys.has('KeyW') || state.activeKeys.has('ArrowUp')) mask |= 0x1;
-        if (state.activeKeys.has('KeyS') || state.activeKeys.has('ArrowDown')) mask |= 0x2;
-        if (state.activeKeys.has('KeyA') || state.activeKeys.has('ArrowLeft')) mask |= 0x4;
-        if (state.activeKeys.has('KeyD') || state.activeKeys.has('ArrowRight')) mask |= 0x8;
-        if (state.activeKeys.has('ShiftLeft') || state.activeKeys.has('ShiftRight')) mask |= 0x20;
-        return mask;
-    }
 
     // --- GUI STYLING ---
     const style = document.createElement('style');
@@ -5873,10 +5847,11 @@
             display: flex; justify-content: center; align-items: center;
         }
         .gui-title { font-size: 13px; font-weight: 600; color: #e0e0e0; letter-spacing: 0.3px; text-transform: uppercase; }
-        .gui-content { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+        .gui-content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
         .gui-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
         .gui-label { color: #aaa; font-weight: 500; }
         
+        /* Sleek Toggle Switches */
         .toggle-switch { position: relative; width: 34px; height: 18px; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .3s; border-radius: 20px; }
@@ -5884,8 +5859,12 @@
         input:checked + .slider { background-color: rgba(64, 209, 255, 0.15); border: 1px solid rgba(64, 209, 255, 0.4); bottom: -1px; left: -1px; right: -1px; top: -1px;}
         input:checked + .slider:before { transform: translateX(16px); background-color: #40d1ff; box-shadow: 0 0 6px rgba(64, 209, 255, 0.5); }
 
+        /* Inputs and Selects */
         .gui-select, .gui-input { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; padding: 4px 8px; font-size: 12px; outline: none; transition: all 0.2s; cursor: pointer; }
+        .gui-select:hover, .gui-input:hover { border-color: rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); }
+        .gui-select:focus { border-color: #40d1ff; }
         .gui-select option { background: #151518; color: #fff; }
+        
         .divider { height: 1px; background: rgba(255,255,255,0.05); margin: 2px 0; }
         .gui-hint { font-size: 10px; color: #666; text-align: center; margin-top: 4px; font-weight: 500; }
     `;
@@ -5894,144 +5873,180 @@
     const gui = document.createElement('div');
     gui.id = 'utility-gui';
     gui.innerHTML = `
-        <div id="gui-header"><span class="gui-title">Utility Panel</span></div>
+        <div id="gui-header">
+            <span class="gui-title">Utility Panel</span>
+        </div>
         <div class="gui-content">
-            <div class="gui-row"><span class="gui-label">Auto-Heal</span><label class="toggle-switch"><input type="checkbox" id="heal-toggle"><span class="slider"></span></label></div>
-            <div class="gui-row"><span class="gui-label">Auto-Swap</span><label class="toggle-switch"><input type="checkbox" id="swap-toggle"><span class="slider"></span></label></div>
-            <div class="gui-row"><span class="gui-label">Auto-Buy</span><label class="toggle-switch"><input type="checkbox" id="buy-toggle"><span class="slider"></span></label></div>
-            <div class="gui-row"><span class="gui-label">Auto-Cactus</span><label class="toggle-switch"><input type="checkbox" id="cactus-toggle"><span class="slider"></span></label></div>
+            <div class="gui-row">
+                <span class="gui-label">Auto-Swap</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="swap-toggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="gui-row">
+                <span class="gui-label">Auto-Buy</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="buy-toggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="gui-row">
+                <span class="gui-label">Auto-Cactus</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="cactus-toggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
             <div class="divider"></div>
-            <div class="gui-row"><span class="gui-label">Tolerance</span><input type="number" id="heal-tol" class="gui-input" value="90" min="1" max="100" style="width: 50px;"></div>
-            <div class="gui-row"><span class="gui-label">Food</span><select id="food-sel" class="gui-select"><option value="Apple">Apple</option><option value="Cookie">Cookie</option></select></div>
-            <div class="gui-row"><span class="gui-label">Main Hat</span><select id="hat-sel" class="gui-select">${hatList.map((n, i) => `<option value="${i+1}" ${n === 'Tail' ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+            <div class="gui-row">
+                <span class="gui-label">Main Hat</span>
+                <select id="base-hat-select" class="gui-select">
+                    ${hatList.map((name, i) => `<option value="${i+1}" ${name === 'Tail' ? 'selected' : ''}>${name}</option>`).join('')}
+                </select>
+            </div>
+            <div class="gui-row">
+                <span class="gui-label">Delay (ms)</span>
+                <input type="number" id="swap-delay" class="gui-input" value="0" min="0" step="50" style="width: 60px;">
+            </div>
             <div class="gui-hint">Press ALT + K to toggle menu</div>
         </div>
     `;
     document.body.appendChild(gui);
 
+    // --- GUI LOGIC (DRAGGING / TOGGLES) ---
     const header = document.getElementById('gui-header');
-    header.onmousedown = (e) => {
+    header.addEventListener('mousedown', (e) => {
         state.isDragging = true;
         state.dragOffset.x = e.clientX - gui.offsetLeft;
         state.dragOffset.y = e.clientY - gui.offsetTop;
-    };
-    window.onmousemove = (e) => {
+    });
+
+    window.addEventListener('mousemove', (e) => {
         if (state.isDragging) {
             gui.style.left = (e.clientX - state.dragOffset.x) + 'px';
             gui.style.top = (e.clientY - state.dragOffset.y) + 'px';
             gui.style.right = 'auto';
         }
-    };
-    window.onmouseup = () => state.isDragging = false;
-    window.onkeydown = (e) => {
+    });
+
+    window.addEventListener('mouseup', () => state.isDragging = false);
+
+    window.addEventListener('keydown', (e) => {
         if (e.altKey && e.code === 'KeyK') {
             state.guiVisible = !state.guiVisible;
-            gui.style.opacity = state.guiVisible ? '1' : '0';
-            gui.style.pointerEvents = state.guiVisible ? 'all' : 'none';
+            if (state.guiVisible) {
+                gui.style.opacity = '1';
+                gui.style.transform = 'scale(1)';
+                gui.style.pointerEvents = 'all';
+            } else {
+                gui.style.opacity = '0';
+                gui.style.transform = 'scale(0.95)';
+                gui.style.pointerEvents = 'none';
+            }
         }
-    };
+    });
 
-    document.getElementById('heal-toggle').onchange = (e) => state.autoHeal = e.target.checked;
-    document.getElementById('heal-tol').oninput = (e) => state.healTolerance = parseInt(e.target.value) || 90;
-    document.getElementById('food-sel').onchange = (e) => state.foodType = e.target.value;
+    // Control Mappings
     document.getElementById('swap-toggle').onchange = (e) => state.swapEnabled = e.target.checked;
     document.getElementById('buy-toggle').onchange = (e) => state.buyEnabled = e.target.checked;
     document.getElementById('cactus-toggle').onchange = (e) => state.autoCactus = e.target.checked;
-    document.getElementById('hat-sel').onchange = (e) => state.baseHatId = parseInt(e.target.value);
+    document.getElementById('base-hat-select').onchange = (e) => state.baseHatId = parseInt(e.target.value);
+    document.getElementById('swap-delay').oninput = (e) => state.delay = parseInt(e.target.value) || 0;
 
-    function isOwned(id) {
-        const el = _0x5691f4[id - 1];
-        return el ? el.querySelector('.shop-btn').style.display === 'none' : true;
+    // --- GAME HELPERS ---
+    function isHatOwned(id) {
+        const skinEl = _0x5691f4[id - 1];
+        return skinEl ? skinEl.querySelector('.shop-btn').style.display === 'none' : true;
     }
 
-    // --- MAIN TICK (60FPS) ---
+    function getRange(type) {
+        const item = _0xca1cdc.ev.find(i => i.placeBlock === type);
+        return (item ? (item.cannonRange || 450) : 450) + 80;
+    }
+  
+    // --- CONSOLIDATED FAST UPDATE ---
     function tick() {
         if (!_0x466240 || _0x466240.isDead) return;
         const now = Date.now();
-        const currentHP = _0x466240.health * 100;
-        const moveBits = getMovementBitmask();
 
-        // 1. Auto-Heal & Weapon Recovery
-        if (state.autoHeal) {
-            if (currentHP < state.healTolerance) {
-                if (!state.isHealing) {
-                    state.preHealWeapon = _0x466240.item.id;
-                    state.isHealing = true;
-                }
-                const foodId = foodIds[state.foodType];
-                // Switch to food if not holding it
-                if (_0x466240.item.id !== foodId) {
-                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeItem, foodId]));
-                }
-                // Send KeyState with move bits + attack bit (0x10) to eat
-                _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iKeyState, moveBits | 0x10])); 
-                state.lastBelowThreshold = now;
-            } else {
-                if (state.isHealing && (now - state.lastBelowThreshold > 100)) {
-                    // Recover previous weapon
-                    if (state.preHealWeapon !== -1) {
-                        _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeItem, state.preHealWeapon]));
-                    }
-                    // Sync movement state and release attack bit
-                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iKeyState, moveBits]));
-                    state.isHealing = false;
-                }
-            }
-        }
-
-        // 2. Auto-Buy
+        // 1. High-Frequency Auto-Buy
         if (state.buyEnabled) {
-            const hIdx = state.baseHatId - 1;
-            const hData = _0xca1cdc.WM[hIdx];
-            if (hData && _0x4e3cab >= hData.cost && !isOwned(state.baseHatId)) {
+            const hatIndex = state.baseHatId - 1;
+            const hatData = _0xca1cdc.WM[hatIndex];
+            
+            if (hatData && _0x4e3cab >= hatData.cost && !isHatOwned(state.baseHatId)) {
                 if (state.pendingBuy !== state.baseHatId) {
-                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iBuySkin, hIdx]));
-                    _0x336d9a("[Auto-Buy]: Purchased " + hData.name);
+                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iBuySkin, hatIndex]));
+                    _0x336d9a("[Auto-Buy]: Bought " + hatData.name);
                     state.pendingBuy = state.baseHatId;
                 }
-            } else if (isOwned(state.baseHatId)) {
+            } else if (isHatOwned(state.baseHatId)) {
                 state.pendingBuy = -1;
             }
         }
 
-        // 3. Auto-Swap
+        // 2. High-Frequency Auto-Swap
         if (state.swapEnabled) {
-            let danger = false;
-            for (let i = 0; i < _0x5a712e.length; i++) {
-                const ent = _0x5a712e[i];
-                if (ent.isCannon && !ent.isDead) {
-                    const d = Math.hypot(ent.x - _0x466240.x, ent.y - _0x466240.y);
-                    const r = (_0xca1cdc.ev.find(it => it.placeBlock === ent.type)?.cannonRange || 450) + 80;
-                    if (d <= r) { danger = true; break; }
-                }
-            }
-            const target = danger ? state.empId : state.baseHatId;
-            if (target !== state.currentEquipped && isOwned(target)) {
-                _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeSkin, target]));
-                state.currentEquipped = target;
-            }
-        }
+            if (state.delay > 0 && (now - state.lastSwitch < state.delay)) return;
 
-        // 4. Auto Cactus
-        if (state.autoCactus) {
-            const sUI = document.querySelector('.storage');
-            const isOpen = sUI && sUI.classList.contains('show');
-            if (isOpen && !state.storageWasOpen) {
-                const bal = document.querySelector('.storage-balance');
-                if (bal) {
-                    const gV = s => parseInt((bal.querySelector(s)?.getAttribute('stroke') || '0').replace(/,/g, '')) || 0;
-                    const f = gV('.food-count'), w = gV('.wood-count'), s = gV('.stone-count'), g = gV('.gold-count');
-                    if (f > 0 || w > 0 || s > 0 || g > 0) {
-                        const p = new DataView(new ArrayBuffer(17));
-                        p.setUint8(0, _0xca1cdc.wT.iWithdraw); p.setUint32(1, f); p.setUint32(5, w); p.setUint32(9, s); p.setUint32(13, g);
-                        _0x2d5e24(p);
-                        let m = [];
-                        if (f > 0) m.push(f + " food"); if (w > 0) m.push(w + " wood"); if (s > 0) m.push(s + " stone"); if (g > 0) m.push(g + " gold");
-                        _0x336d9a("[Auto-Cactus]: Withdrew " + m.join(", "));
+            let danger = false;
+            const ents = _0x5a712e;
+            for (let i = 0; i < ents.length; i++) {
+                const ent = ents[i];
+                if (ent.isCannon && !ent.isDead) {
+                    const dist = Math.hypot(ent.x - _0x466240.x, ent.y - _0x466240.y);
+                    if (dist <= getRange(ent.type)) {
+                        danger = true;
+                        break;
                     }
                 }
             }
-            state.storageWasOpen = isOpen;
+
+            const target = danger ? state.empId : state.baseHatId;
+            if (target !== state.currentEquipped && isHatOwned(target)) {
+                _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeSkin, target]));
+                state.currentEquipped = target;
+                state.lastSwitch = now;
+            }
+        }
+
+        // 3. Auto Cactus (Instant Storage Withdraw)
+        if (state.autoCactus) {
+            const storageUI = document.querySelector('.storage');
+            const isStorageOpen = storageUI && storageUI.classList.contains('show');
+            
+            if (isStorageOpen && !state.storageWasOpen) {
+                const balanceEl = document.querySelector('.storage-balance');
+                if (balanceEl) {
+                    const getVal = selector => parseInt((balanceEl.querySelector(selector)?.getAttribute('stroke') || '0').replace(/,/g, '')) || 0;
+                    
+                    const food = getVal('.food-count');
+                    const wood = getVal('.wood-count');
+                    const stone = getVal('.stone-count');
+                    const gold = getVal('.gold-count');
+                    
+                    if (food > 0 || wood > 0 || stone > 0 || gold > 0) {
+                        const packet = new DataView(new ArrayBuffer(17));
+                        packet.setUint8(0, _0xca1cdc.wT.iWithdraw); 
+                        packet.setUint32(1, food);
+                        packet.setUint32(5, wood);
+                        packet.setUint32(9, stone);
+                        packet.setUint32(13, gold);
+                        
+                        _0x2d5e24(packet);
+                        
+                        let msg = [];
+                        if (food > 0) msg.push(food + " food");
+                        if (wood > 0) msg.push(wood + " wood");
+                        if (stone > 0) msg.push(stone + " stone");
+                        if (gold > 0) msg.push(gold + " gold");
+                        
+                        _0x336d9a("[Auto-Cactus]: Withdrew " + msg.join(", "));
+                    }
+                }
+            }
+            state.storageWasOpen = isStorageOpen;
         }
     }
 
