@@ -5839,7 +5839,7 @@
 
         handleCommand: function(msg) {
             let parts = msg.trim().split(" ");
-            let cmd = parts[0];
+            let cmd = parts[0].toLowerCase();
 
             if (cmd === "/goto" && parts.length >= 3) {
                 this.targetX = parseFloat(parts[1]);
@@ -5856,7 +5856,7 @@
             else if (cmd === "/leave") {
                 let targetId = parseInt(parts[1]);
                 if (!isNaN(targetId)) {
-                    if (this.sendGift(targetId)) {
+                    if (this.sendGift(targetId, 1.0)) {
                         _0x336d9a("Gifted mats. Reconnecting...");
                         setTimeout(() => {
                             if (_0x419dc9 && _0x419dc9.url) {
@@ -5879,11 +5879,53 @@
                     }
                 }
             }
+            else if (cmd === "/gift") {
+                let targetId = parseInt(parts[1]);
+                let percentage = parts.length > 2 ? parseFloat(parts[2]) : 50;
+                if (isNaN(percentage)) percentage = 50;
+                
+                // Clamp between 0 and 100, then convert to decimal
+                percentage = Math.max(0, Math.min(100, percentage)) / 100.0;
+                
+                if (!isNaN(targetId)) {
+                    if (this.sendGift(targetId, percentage)) {
+                        _0x336d9a(`Gifted ${Math.round(percentage * 100)}% of mats to member ${targetId}`);
+                    } else {
+                        _0x336d9a("Gift failed. Check ID or resources.");
+                    }
+                }
+            }
+            else if (cmd === "/loadout") {
+                let type = (parts[1] || "").toLowerCase();
+                let items = [];
+                
+                if (type === "b") {
+                    items = [24, 28]; // Hammer, Bomb
+                } else if (type === "m") {
+                    items = [34, 31, 2, 39, 19, 15, 23, 18, 16, 22, 29, 13]; // Max loadout
+                } else {
+                    _0x336d9a("Invalid loadout type. Use /loadout b or /loadout m");
+                    return;
+                }
+                
+                // Equip/Upgrade the requested items via iChangeItem (0x3)
+                items.forEach(id => {
+                    __originalSend(new Uint8Array([3, id]));
+                });
+                _0x336d9a("Loadout applied.");
+            }
+            else if (cmd === "/account" && parts.length > 1) {
+                let name = parts.slice(1).join(" ");
+                let encodedName = new TextEncoder().encode(name);
+                // Send iAccountDataReq (0x11)
+                __originalSend(new Uint8Array([17, ...encodedName])); 
+                _0x336d9a("Requesting " + name + "'s profile...");
+            }
         },
 
-        // Core gifting logic used by both /leave and /stream
-        sendGift: function(targetId) {
-            let members = _0x311e82.children; // Accesses the DOM Clan List
+        // Core gifting logic (Used by /leave, /stream, and /gift)
+        sendGift: function(targetId, percent = 1.0) {
+            let members = _0x311e82.children; 
             
             if (members.length <= 1) {
                 _0x336d9a("Action Refused: No one else in the clan.");
@@ -5901,15 +5943,21 @@
             // Build Gift Packet using game's bitmask layout
             let mask = 0;
             let vals = [];
-            if (_0x5cb651 > 0) { mask |= 1; vals.push(_0x5cb651); } // Food
-            if (_0x475a45 > 0) { mask |= 2; vals.push(_0x475a45); } // Wood
-            if (_0x505bb2 > 0) { mask |= 4; vals.push(_0x505bb2); } // Stone
-            if (_0x4e3cab > 0) { mask |= 8; vals.push(_0x4e3cab); } // Gold
+            
+            let amountFood = Math.floor(_0x5cb651 * percent);
+            let amountWood = Math.floor(_0x475a45 * percent);
+            let amountStone = Math.floor(_0x505bb2 * percent);
+            let amountGold = Math.floor(_0x4e3cab * percent);
+
+            if (amountFood > 0) { mask |= 1; vals.push(amountFood); }
+            if (amountWood > 0) { mask |= 2; vals.push(amountWood); }
+            if (amountStone > 0) { mask |= 4; vals.push(amountStone); }
+            if (amountGold > 0) { mask |= 8; vals.push(amountGold); }
 
             if (mask > 0) {
                 let buffer = new ArrayBuffer(3 + vals.length * 4);
                 let view = new DataView(buffer);
-                view.setUint8(0, _0xca1cdc.wT.iGift); // 14
+                view.setUint8(0, 14); // 14 is iGift
                 view.setUint8(1, targetId);
                 view.setUint8(2, mask);
                 let offset = 3;
@@ -5929,19 +5977,26 @@
             _0x4cfb62.KeyA = false;
             _0x4cfb62.KeyD = false;
             _0x4cfb62.mouse0 = false;
-            _0x5629b9(); // Send stop packet
+            _0x5629b9(); 
         },
 
-        // Creates a collision map array avoiding objects
+        // Fast & CPU friendly Grid building
         buildGrid: function() {
             let cells = Math.ceil((this.mapSize + (this.gridOffset * 2)) / this.gridSize);
-            let grid = new Array(cells).fill(0).map(() => new Array(cells).fill(0));
+            
+            // Reuse grid memory to heavily reduce GC lag spikes
+            if (!this.cachedGrid || this.cachedGridCells !== cells) {
+                this.cachedGrid = new Uint8Array(cells * cells);
+                this.cachedGridCells = cells;
+            } else {
+                this.cachedGrid.fill(0); // Quick memory wipe
+            }
+            let grid = this.cachedGrid;
             
             for (let i = 0; i < _0x5a712e.length; i++) {
                 let ent = _0x5a712e[i];
                 if (ent === _0x466240 || ent.isDead) continue;
                 
-                // If it's a solid obstacle
                 if (!ent.isPlayer && !ent.isProj && !ent.isDisplay && !ent.isHole && ent.type !== 6) {
                     let cx = this.worldToGrid(ent.x);
                     let cy = this.worldToGrid(ent.y);
@@ -5951,7 +6006,7 @@
                         for (let dy = -radius; dy <= radius; dy++) {
                             let nx = cx + dx, ny = cy + dy;
                             if (nx >= 0 && nx < cells && ny >= 0 && ny < cells) {
-                                grid[nx][ny] = 1; // Obstacle flag
+                                grid[nx + ny * cells] = 1; 
                             }
                         }
                     }
@@ -5960,7 +6015,7 @@
             return { grid, cells };
         },
 
-        // A* Pathfinder
+        // Fast A* with Min-Heap
         aStar: function(startX, startY, goalX, goalY) {
             let { grid, cells } = this.buildGrid();
             
@@ -5970,12 +6025,56 @@
             goalX = Math.max(0, Math.min(cells - 1, goalX));
             goalY = Math.max(0, Math.min(cells - 1, goalY));
 
-            let openSet = [{x: startX, y: startY, g: 0, f: 0, parent: null}];
+            if (startX === goalX && startY === goalY) return [];
+
+            // Lightweight priority queue limits array allocations overhead vs .sort()
+            class MinHeap {
+                constructor() { this.data = []; }
+                push(val) {
+                    this.data.push(val);
+                    this.up(this.data.length - 1);
+                }
+                pop() {
+                    const top = this.data[0];
+                    const bottom = this.data.pop();
+                    if (this.data.length > 0) {
+                        this.data[0] = bottom;
+                        this.down(0);
+                    }
+                    return top;
+                }
+                up(i) {
+                    while (i > 0) {
+                        const p = (i - 1) >> 1;
+                        if (this.data[p].f <= this.data[i].f) break;
+                        const tmp = this.data[i]; this.data[i] = this.data[p]; this.data[p] = tmp;
+                        i = p;
+                    }
+                }
+                down(i) {
+                    const len = this.data.length;
+                    while ((i << 1) + 1 < len) {
+                        let left = (i << 1) + 1;
+                        let right = left + 1;
+                        let min = left;
+                        if (right < len && this.data[right].f < this.data[left].f) min = right;
+                        if (this.data[i].f <= this.data[min].f) break;
+                        const tmp = this.data[i]; this.data[i] = this.data[min]; this.data[min] = tmp;
+                        i = min;
+                    }
+                }
+                get length() { return this.data.length; }
+            }
+
+            let openSet = new MinHeap();
+            openSet.push({x: startX, y: startY, g: 0, f: 0, parent: null});
             let closedSet = new Uint8Array(cells * cells);
             
-            while(openSet.length > 0) {
-                openSet.sort((a, b) => a.f - b.f);
-                let current = openSet.shift();
+            let nodesEvaluated = 0; // Cutoff to avoid locking UI if boxed-in
+
+            while(openSet.length > 0 && nodesEvaluated < 2500) {
+                let current = openSet.pop();
+                nodesEvaluated++;
                 
                 if (current.x === goalX && current.y === goalY) {
                     let path = [];
@@ -5991,7 +6090,6 @@
                 if(closedSet[idx]) continue;
                 closedSet[idx] = 1;
                 
-                // Explore 8 directions
                 let neighbors = [
                     {x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0},
                     {x: -1, y: -1}, {x: 1, y: -1}, {x: -1, y: 1}, {x: 1, y: 1}
@@ -6002,7 +6100,7 @@
                     let ny = current.y + n.y;
                     
                     if(nx < 0 || ny < 0 || nx >= cells || ny >= cells) continue;
-                    if(grid[nx][ny] === 1) continue; 
+                    if(grid[nx + ny * cells] === 1) continue; 
                     
                     let gCost = current.g + (n.x !== 0 && n.y !== 0 ? 1.414 : 1);
                     let hCost = Math.hypot(goalX - nx, goalY - ny);
@@ -6019,13 +6117,12 @@
             if (this.streamTargetId !== null) {
                 let now = Date.now();
                 if (now - this.lastStreamTime > this.streamInterval) {
-                    // Try to send gift, if it returns false due to invalid target, cancel stream
                     let members = _0x311e82.children;
                     if (this.streamTargetId >= members.length || members.length <= 1) {
                         this.streamTargetId = null;
                         _0x336d9a("Autoplay: Stream ended (target missing)");
                     } else {
-                        this.sendGift(this.streamTargetId);
+                        this.sendGift(this.streamTargetId, 1.0);
                         this.lastStreamTime = now;
                     }
                 }
@@ -6036,7 +6133,6 @@
             let myX = _0x466240.x;
             let myY = _0x466240.y;
             
-            // Has arrived check
             if (Math.hypot(this.targetX - myX, this.targetY - myY) <= 50) {
                 this.active = false;
                 this.resetKeys();
@@ -6099,7 +6195,7 @@
             if (isDigging) {
                 let batId = this.getBatId();
                 if (_0x466240.item && _0x466240.item.id !== batId) {
-                    _0xb6b4d7(batId);
+                    __originalSend(new Uint8Array([3, batId])); // Force Equip Bat
                 }
                 _0x4cfb62.mouse0 = true;
                 _0x965f53(angle);
@@ -6131,7 +6227,7 @@
     
     // Bind bot updates natively to 60 frames a second (matching tickrate)
     setInterval(() => autoplayBot.update(), 1000 / 60);
-    // === END AUTOPLAY BOT ===
+// === END AUTOPLAY BOT ===
     _0x3c0ef4();
   })();
 })();
