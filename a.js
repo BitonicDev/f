@@ -5829,6 +5829,12 @@
         // AutoCactus variables
         autoCactusActive: false,
 
+        // AutoHeal variables
+        autoHealActive: false,
+        autoHealTol: 0.5,
+        lastHealTime: 0,
+        isHealing: false,
+
         // Resolves the ID of the Bat (best for digging)
         getBatId: function() {
             for (let i = 0; i < _0xca1cdc.ev.length; i++) {
@@ -5851,7 +5857,8 @@
 
             if (cmd === "/help") {
                 _0x336d9a("Commands: /goto [x] [y] | /stop | /leave [id] | /account [user]");
-                setTimeout(() => _0x336d9a("/stream [id] | /gift [id] [pct] | /autoemp [bool] | /autocactus [bool]"), 200);
+                setTimeout(() => _0x336d9a("/stream [id] | /gift [id] [pct] | /autoemp [bool]"), 200);
+                setTimeout(() => _0x336d9a("/autocactus [bool] | /autoheal [bool] [tol]"), 400);
             }
             else if (cmd === "/goto" && parts.length >= 3) {
                 this.targetX = parseFloat(parts[1]);
@@ -5923,6 +5930,15 @@
                 let state = parts[1].toLowerCase() === "true";
                 this.autoCactusActive = state;
                 _0x336d9a("AutoCactus: " + (state ? "ON" : "OFF"));
+            }
+            else if (cmd === "/autoheal" && parts.length >= 2) {
+                let state = parts[1].toLowerCase() === "true";
+                let tol = parts.length >= 3 ? parseFloat(parts[2]) : 50;
+                if (isNaN(tol) || tol <= 0 || tol > 100) tol = 50;
+                
+                this.autoHealActive = state;
+                this.autoHealTol = tol / 100;
+                _0x336d9a("AutoHeal: " + (state ? "ON" : "OFF") + " (Tol: " + tol + "%)");
             }
         },
 
@@ -6155,6 +6171,33 @@
 
                     // Close the storage menu via DOM click simulation
                     if (_0x52e53d) _0x52e53d.click(_0x301307);
+                }
+            }
+
+            // Logic 4: Handle AutoHeal
+            if (this.autoHealActive && _0x466240 && !this.isHealing) {
+                // Check if health is below tolerance, above 0, and we have enough food to eat (5 for lowest tier)
+                if (_0x466240.health < this.autoHealTol && _0x466240.health > 0 && _0x5cb651 >= 5) {
+                    let now = Date.now();
+                    // Food weapon reload time is mostly 400ms across all food
+                    if (now - this.lastHealTime > 400) {
+                        this.isHealing = true;
+                        this.lastHealTime = now;
+                        let prevItem = _0x466240.item.id;
+                        
+                        _0x2cccef(4); // 4 is the index for the Food slot (Q key)
+                        
+                        let wasAttacking = _0x4cfb62.mouse0;
+                        _0x4cfb62.mouse0 = true;
+                        _0x5629b9(); // Send keystate with attack forced true
+                        
+                        setTimeout(() => {
+                            _0x4cfb62.mouse0 = wasAttacking;
+                            _0xb6b4d7(prevItem); // Re-equip previous item smoothly
+                            _0x5629b9(); // Send keystate with attack reverted
+                            this.isHealing = false;
+                        }, 100); // Wait enough time for server to accept the food selection & attack
+                    }
                 }
             }
 
