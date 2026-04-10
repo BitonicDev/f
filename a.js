@@ -5815,8 +5815,6 @@
         gridSize: 100, // Coarse grid for fast A* processing
         mapSize: _0xca1cdc.KN || 10000, 
         gridOffset: 1000, // Expanded bounds to allow pathfinding outside the map
-        grid: null,
-        gridCells: 0,
         lastChats: {},
 
         // Resolves the ID of the Bat (best for digging)
@@ -5835,13 +5833,15 @@
             return (val * this.gridSize) - this.gridOffset + (this.gridSize / 2);
         },
 
-        // Checks all players' chat properties every tick
+        // Checks all players' chat properties to accept Remote Commands
         pollChats: function() {
             for (let id in _0x4cf941) {
                 let ent = _0x4cf941[id];
                 if (ent.isPlayer && ent.chat && ent.chat !== this.lastChats[id]) {
                     this.lastChats[id] = ent.chat;
-                    this.handleCommand(ent.chat, false);
+                    if (ent.chat.startsWith("/")) {
+                        this.handleCommand(ent.chat, false); // false = Remote Command
+                    }
                 } else if (!ent.chat) {
                     this.lastChats[id] = null;
                 }
@@ -5849,19 +5849,75 @@
         },
 
         handleCommand: function(msg, isLocal) {
-            if (msg.startsWith("/goto ")) {
-                let parts = msg.split(" ");
-                if (parts.length >= 3) {
-                    this.targetX = parseFloat(parts[1]);
-                    this.targetY = parseFloat(parts[2]);
-                    this.active = true;
-                    _0x336d9a("Autoplay: Navigating to " + this.targetX + ", " + this.targetY); 
-                }
-            } else if (msg === "/stop") {
+            let parts = msg.trim().split(" ");
+            let cmd = parts[0];
+
+            if (cmd === "/goto" && parts.length >= 3) {
+                this.targetX = parseFloat(parts[1]);
+                this.targetY = parseFloat(parts[2]);
+                this.active = true;
+                _0x336d9a((isLocal ? "Local" : "Remote") + " Autoplay: Navigating to " + this.targetX + ", " + this.targetY);
+            } 
+            else if (cmd === "/stop") {
                 this.active = false;
                 this.resetKeys();
-                _0x336d9a("Autoplay: Stopped");
+                _0x336d9a((isLocal ? "Local" : "Remote") + " Autoplay: Stopped");
+            } 
+            else if (cmd === "/leave" && isLocal) {
+                let targetId = parseInt(parts[1]);
+                if (!isNaN(targetId)) {
+                    this.leaveAndGift(targetId);
+                }
             }
+        },
+
+        leaveAndGift: function(targetId) {
+            let members = _0x311e82.children; // Accesses the DOM Clan List
+            
+            if (members.length <= 1) {
+                _0x336d9a("Action Refused: No one else in the clan.");
+                return;
+            }
+            if (targetId < 0 || targetId >= members.length) {
+                _0x336d9a("Action Refused: Invalid clan member ID.");
+                return;
+            }
+            if (members[targetId].isMe) {
+                _0x336d9a("Action Refused: You cannot gift to yourself.");
+                return;
+            }
+
+            // Build Gift Packet using game's bitmask layout
+            let mask = 0;
+            let vals = [];
+            if (_0x5cb651 > 0) { mask |= 1; vals.push(_0x5cb651); } // Food
+            if (_0x475a45 > 0) { mask |= 2; vals.push(_0x475a45); } // Wood
+            if (_0x505bb2 > 0) { mask |= 4; vals.push(_0x505bb2); } // Stone
+            if (_0x4e3cab > 0) { mask |= 8; vals.push(_0x4e3cab); } // Gold
+
+            if (mask > 0) {
+                let buffer = new ArrayBuffer(3 + vals.length * 4);
+                let view = new DataView(buffer);
+                view.setUint8(0, _0xca1cdc.wT.iGift); // 14
+                view.setUint8(1, targetId);
+                view.setUint8(2, mask);
+                let offset = 3;
+                for (let v of vals) {
+                    view.setUint32(offset, v);
+                    offset += 4;
+                }
+                __originalSend(new Uint8Array(buffer));
+                _0x336d9a("Gifted all mats to clan member " + targetId);
+            } else {
+                _0x336d9a("No mats to gift. Reconnecting...");
+            }
+
+            // Disconnect and reconnect to current server immediately
+            setTimeout(() => {
+                if (_0x419dc9 && _0x419dc9.url) {
+                    window.connect(_0x419dc9.url);
+                }
+            }, 100);
         },
 
         resetKeys: function() {
@@ -5873,44 +5929,37 @@
             _0x5629b9(); // Send stop packet
         },
 
-        // Creates a fast collision map array avoiding objects
+        // Creates a collision map array avoiding objects (Lag-free standard)
         buildGrid: function() {
             let cells = Math.ceil((this.mapSize + (this.gridOffset * 2)) / this.gridSize);
+            let grid = new Array(cells).fill(0).map(() => new Array(cells).fill(0));
             
-            // Allocate fast 1D array to prevent lag spikes
-            if (!this.grid || this.gridCells !== cells) {
-                this.grid = new Int8Array(cells * cells);
-                this.gridCells = cells;
-            } else {
-                this.grid.fill(0); // Clear previous frame
-            }
-
             for (let i = 0; i < _0x5a712e.length; i++) {
                 let ent = _0x5a712e[i];
                 if (ent === _0x466240 || ent.isDead) continue;
                 
-                let cx = this.worldToGrid(ent.x);
-                let cy = this.worldToGrid(ent.y);
-                
-                // If it's a solid obstacle (ignore platforms, players, projectiles, holes)
+                // If it's a solid obstacle
                 if (!ent.isPlayer && !ent.isProj && !ent.isDisplay && !ent.isHole && ent.type !== 6) {
-                    let radius = Math.ceil(((ent.size || 40) + 30) / this.gridSize); // Obstacle size + body padding
+                    let cx = this.worldToGrid(ent.x);
+                    let cy = this.worldToGrid(ent.y);
+                    let radius = Math.ceil(((ent.size || 40) + 40) / this.gridSize); 
+                    
                     for (let dx = -radius; dx <= radius; dx++) {
                         for (let dy = -radius; dy <= radius; dy++) {
                             let nx = cx + dx, ny = cy + dy;
                             if (nx >= 0 && nx < cells && ny >= 0 && ny < cells) {
-                                this.grid[nx + ny * cells] = 1; // Mark blocked
+                                grid[nx][ny] = 1; // Obstacle flag
                             }
                         }
                     }
                 }
             }
+            return { grid, cells };
         },
 
-        // Highly optimized A* Pathfinder
+        // A* Pathfinder
         aStar: function(startX, startY, goalX, goalY) {
-            this.buildGrid();
-            let cells = this.gridCells;
+            let { grid, cells } = this.buildGrid();
             
             // Constrain targets to bounds
             startX = Math.max(0, Math.min(cells - 1, startX));
@@ -5918,21 +5967,13 @@
             goalX = Math.max(0, Math.min(cells - 1, goalX));
             goalY = Math.max(0, Math.min(cells - 1, goalY));
 
-            if (this.grid[startX + startY * cells] === 1) return null; // We are stuck inside a block
-
             let openSet = [{x: startX, y: startY, g: 0, f: 0, parent: null}];
             let closedSet = new Uint8Array(cells * cells);
             
-            let iters = 0;
-            while(openSet.length > 0 && iters < 1500) { // Hard limit to guarantee no game freezing
-                iters++;
-                
-                // Get lowest cost node
-                let minIdx = 0;
-                for(let i = 1; i < openSet.length; i++) {
-                    if (openSet[i].f < openSet[minIdx].f) minIdx = i;
-                }
-                let current = openSet.splice(minIdx, 1)[0];
+            while(openSet.length > 0) {
+                // Sort by cheapest heuristic
+                openSet.sort((a, b) => a.f - b.f);
+                let current = openSet.shift();
                 
                 if (current.x === goalX && current.y === goalY) {
                     let path = [];
@@ -5946,7 +5987,7 @@
                 
                 let idx = current.x + current.y * cells;
                 if(closedSet[idx]) continue;
-                closedSet[idx] = 1; // Mark calculated
+                closedSet[idx] = 1; // Mark node calculated
                 
                 // Explore 8 directions
                 let neighbors = [
@@ -5959,15 +6000,16 @@
                     let ny = current.y + n.y;
                     
                     if(nx < 0 || ny < 0 || nx >= cells || ny >= cells) continue;
-                    if(this.grid[nx + ny * cells] === 1) continue; // Skip obstacles
+                    if(grid[nx][ny] === 1) continue; // Skip obstacles
                     
                     let gCost = current.g + (n.x !== 0 && n.y !== 0 ? 1.414 : 1);
                     let hCost = Math.hypot(goalX - nx, goalY - ny);
+                    let fCost = gCost + hCost;
                     
-                    openSet.push({x: nx, y: ny, g: gCost, f: gCost + hCost, parent: current});
+                    openSet.push({x: nx, y: ny, g: gCost, f: fCost, parent: current});
                 }
             }
-            return null; // No path found / Hit limit
+            return null; // No path found
         },
 
         update: function() {
@@ -5985,7 +6027,7 @@
                 return;
             }
 
-            // Recalculate Environment occasionally or if stuck
+            // Recalculate A* Environment every 500ms to adapt to changing environments 
             if (Date.now() - this.lastPathTime > 500) {
                 let startGridX = this.worldToGrid(myX);
                 let startGridY = this.worldToGrid(myY);
@@ -6006,13 +6048,15 @@
                 wpY = this.gridToWorld(wp.y);
                 
                 // If close to intermediate waypoint, progress to the next
-                if (Math.hypot(wpX - myX, wpY - myY) < this.gridSize && this.path.length > 1) {
+                let dist = Math.hypot(wpX - myX, wpY - myY);
+                if (dist < this.gridSize && this.path.length > 1) {
                     this.path.shift();
                     wp = this.path[0];
                     wpX = this.gridToWorld(wp.x);
                     wpY = this.gridToWorld(wp.y);
                 }
                 
+                // Absolute destination aiming for the final node
                 if (this.path.length === 1) {
                     wpX = this.targetX;
                     wpY = this.targetY;
@@ -6029,6 +6073,7 @@
 
             let crossingOutX = (myX < borderDist && dx < 0) || (myX > this.mapSize - borderDist && dx > 0);
             let crossingInX  = (myX < 0 && myX > -borderDist && dx > 0) || (myX > this.mapSize && myX < this.mapSize + borderDist && dx < 0);
+            
             let crossingOutY = (myY < borderDist && dy < 0) || (myY > this.mapSize - borderDist && dy > 0);
             let crossingInY  = (myY < 0 && myY > -borderDist && dy > 0) || (myY > this.mapSize && myY < this.mapSize + borderDist && dy < 0);
             
@@ -6056,21 +6101,20 @@
             _0x5629b9(); // Apply inputs
         }
     };
-    
-    // Intercept local chat commands before they are sent to the server
-    const chatInputElem = document.querySelector(".chat-input");
-    if (chatInputElem) {
-        chatInputElem.addEventListener("keydown", function(e) {
-            if (e.keyCode === 13) { // Enter key
-                let msg = chatInputElem.value.trim();
-                if (msg.startsWith("/goto ") || msg === "/stop") {
-                    autoplayBot.handleCommand(msg, true);
-                    chatInputElem.value = ""; // Erase input to cancel normal packet sending
-                }
-            }
-        });
-    }
 
+    // Intercept outgoing Local Chat messages seamlessly
+    const __originalSend = _0x2d5e24;
+    _0x2d5e24 = function(packet) {
+        if (packet[0] === _0xca1cdc.wT.iChat) {
+            let msg = new TextDecoder().decode(packet.slice(1));
+            if (msg.startsWith("/")) {
+                autoplayBot.handleCommand(msg, true); // Process as a local command
+                return; // Stop the command from broadcasting in-game
+            }
+        }
+        __originalSend.apply(this, arguments);
+    };
+    
     // Bind bot updates natively to 30 frames a second
     setInterval(() => autoplayBot.update(), 1000 / 30);
     // === END AUTOPLAY BOT ===
