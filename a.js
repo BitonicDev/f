@@ -5826,6 +5826,9 @@
         isEmpForced: false,
         prevHatId: -1,
 
+        // AutoCactus variables
+        autoCactusActive: false,
+
         // Resolves the ID of the Bat (best for digging)
         getBatId: function() {
             for (let i = 0; i < _0xca1cdc.ev.length; i++) {
@@ -5846,7 +5849,11 @@
             let parts = msg.trim().split(" ");
             let cmd = parts[0].toLowerCase();
 
-            if (cmd === "/goto" && parts.length >= 3) {
+            if (cmd === "/help") {
+                _0x336d9a("Commands: /goto [x] [y] | /stop | /leave [id] | /account [user]");
+                setTimeout(() => _0x336d9a("/stream [id] | /gift [id] [pct] | /autoemp [bool] | /autocactus [bool]"), 200);
+            }
+            else if (cmd === "/goto" && parts.length >= 3) {
                 this.targetX = parseFloat(parts[1]);
                 this.targetY = parseFloat(parts[2]);
                 this.active = true;
@@ -5900,7 +5907,7 @@
                 let accountName = parts.slice(1).join(" ");
                 if (accountName) {
                     __originalSend(new Uint8Array([_0xca1cdc.wT.iAccountDataReq, ...new TextEncoder().encode(accountName)]));
-                    _0x336d9a("Requested account profile: " + accountName);
+                    _0x336d9a("Requesting " + accountName + "'s profile...");
                 }
             }
             else if (cmd === "/autoemp" && parts.length >= 2) {
@@ -5911,6 +5918,11 @@
                     this.prevHatId = _0x466240.skin ? _0x466240.skin.id : -1;
                 }
                 _0x336d9a("AutoEMP: " + (state ? "ON" : "OFF"));
+            }
+            else if (cmd === "/autocactus" && parts.length >= 2) {
+                let state = parts[1].toLowerCase() === "true";
+                this.autoCactusActive = state;
+                _0x336d9a("AutoCactus: " + (state ? "ON" : "OFF"));
             }
         },
 
@@ -6115,6 +6127,34 @@
                         this.sendGift(this.streamTargetId, 1.0); // 100% on intervals
                         this.lastStreamTime = now;
                     }
+                }
+            }
+
+            // Logic 3: Handle AutoCactus (Auto Storage Withdrawal)
+            if (this.autoCactusActive && _0x5c84b0 && _0x5c84b0.classList.contains("show")) {
+                let f = _0x53bf5e[0] || 0;
+                let w = _0x53bf5e[1] || 0;
+                let s = _0x53bf5e[2] || 0;
+                let g = _0x53bf5e[3] || 0;
+
+                if (f > 0 || w > 0 || s > 0 || g > 0) {
+                    let buffer = new ArrayBuffer(17);
+                    let view = new DataView(buffer);
+                    let offset = 0;
+                    view.setUint8(offset++, _0xca1cdc.wT.iWithdraw);
+                    view.setUint32(offset, f); offset += 4;
+                    view.setUint32(offset, w); offset += 4;
+                    view.setUint32(offset, s); offset += 4;
+                    view.setUint32(offset, g); offset += 4;
+                    __originalSend(new Uint8Array(buffer));
+
+                    _0x336d9a(`AutoCactus: Withdrew ${f}F, ${w}W, ${s}S, ${g}G`);
+                    
+                    // Local reset to prevent multi-looping before server responds
+                    _0x53bf5e[0] = 0; _0x53bf5e[1] = 0; _0x53bf5e[2] = 0; _0x53bf5e[3] = 0;
+
+                    // Close the storage menu via DOM click simulation
+                    if (_0x52e53d) _0x52e53d.click(_0x301307);
                 }
             }
 
