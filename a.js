@@ -5814,6 +5814,7 @@
         lastPathTime: 0,
         gridSize: 100, // Coarse grid for fast A* processing
         mapSize: _0xca1cdc.KN || 10000, 
+        gridOffset: 1000, // Expanded bounds to allow pathfinding outside the map
         lastChats: {},
 
         // Resolves the ID of the Bat (best for digging)
@@ -5822,6 +5823,14 @@
                 if (_0xca1cdc.ev[i] && _0xca1cdc.ev[i].name === "Bat") return _0xca1cdc.ev[i].id;
             }
             return 2; // Fallback ID
+        },
+
+        // Coordinate to Grid conversions
+        worldToGrid: function(val) {
+            return Math.floor((val + this.gridOffset) / this.gridSize);
+        },
+        gridToWorld: function(val) {
+            return (val * this.gridSize) - this.gridOffset + (this.gridSize / 2);
         },
 
         // Checks all players' chat properties every tick
@@ -5862,27 +5871,48 @@
             _0x5629b9(); // Send stop packet
         },
 
-        // Creates a collision map array avoiding objects (trees, stones, spikes, walls)
+        // Creates a collision map array avoiding objects and penalizing water
         buildGrid: function() {
-            let cells = Math.ceil(this.mapSize / this.gridSize) + 1;
+            let cells = Math.ceil((this.mapSize + (this.gridOffset * 2)) / this.gridSize);
             let grid = new Array(cells).fill(0).map(() => new Array(cells).fill(0));
             
+            // Apply Water Penalties (from 4200 to 4800 typically)
+            let riverYStart = this.worldToGrid(_0xca1cdc.UA?.river?.[0] || 4200);
+            let riverYEnd = this.worldToGrid(_0xca1cdc.UA?.river?.[1] || 4800);
+            
+            for (let x = 0; x < cells; x++) {
+                for (let y = Math.max(0, riverYStart); y <= Math.min(cells - 1, riverYEnd); y++) {
+                    grid[x][y] = 5; // Heavy penalty for water to encourage bridges
+                }
+            }
+
             for (let i = 0; i < _0x5a712e.length; i++) {
                 let ent = _0x5a712e[i];
                 if (ent === _0x466240 || ent.isDead) continue;
                 
-                // If it's solid map geometry or a trap
-                if (!ent.isPlayer && !ent.isProj && !ent.isDisplay && !ent.isHole) {
-                    let cx = Math.floor(ent.x / this.gridSize);
-                    let cy = Math.floor(ent.y / this.gridSize);
-                    // Add padding to ensure the bot doesn't clip corners
-                    let radius = Math.ceil((ent.size + 40) / this.gridSize); 
-                    
+                let cx = this.worldToGrid(ent.x);
+                let cy = this.worldToGrid(ent.y);
+                
+                // If it's a Platform (id 6), clear the water penalty so the bot favors it
+                if (ent.type === 6) {
+                    let radius = Math.ceil((ent.size || 40) / this.gridSize); 
                     for (let dx = -radius; dx <= radius; dx++) {
                         for (let dy = -radius; dy <= radius; dy++) {
                             let nx = cx + dx, ny = cy + dy;
                             if (nx >= 0 && nx < cells && ny >= 0 && ny < cells) {
-                                grid[nx][ny] = 1;
+                                grid[nx][ny] = 0; // Make platforms very favorable
+                            }
+                        }
+                    }
+                }
+                // If it's a solid obstacle
+                else if (!ent.isPlayer && !ent.isProj && !ent.isDisplay && !ent.isHole) {
+                    let radius = Math.ceil(((ent.size || 40) + 40) / this.gridSize); // Added padding
+                    for (let dx = -radius; dx <= radius; dx++) {
+                        for (let dy = -radius; dy <= radius; dy++) {
+                            let nx = cx + dx, ny = cy + dy;
+                            if (nx >= 0 && nx < cells && ny >= 0 && ny < cells) {
+                                grid[nx][ny] = -1; // Obstacle flag
                             }
                         }
                     }
@@ -5891,11 +5921,11 @@
             return { grid, cells };
         },
 
-        // Finds the best path that circumvents obstacles and dead-ends
+        // Finds the best path that circumvents obstacles and penalizes water loops
         aStar: function(startX, startY, goalX, goalY) {
             let { grid, cells } = this.buildGrid();
             
-            // Constrain targets heavily to within the calculated grid
+            // Constrain targets to bounds
             startX = Math.max(0, Math.min(cells - 1, startX));
             startY = Math.max(0, Math.min(cells - 1, startY));
             goalX = Math.max(0, Math.min(cells - 1, goalX));
@@ -5923,7 +5953,7 @@
                 if(closedSet[idx]) continue;
                 closedSet[idx] = 1; // Mark node calculated
                 
-                // Explore 8 directions (diagonal movement enabled)
+                // Explore 8 directions
                 let neighbors = [
                     {x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0},
                     {x: -1, y: -1}, {x: 1, y: -1}, {x: -1, y: 1}, {x: 1, y: 1}
@@ -5934,9 +5964,11 @@
                     let ny = current.y + n.y;
                     
                     if(nx < 0 || ny < 0 || nx >= cells || ny >= cells) continue;
-                    if(grid[nx][ny] === 1) continue; // Skip obstacles
                     
-                    let gCost = current.g + (n.x !== 0 && n.y !== 0 ? 1.414 : 1);
+                    let weight = grid[nx][ny];
+                    if(weight === -1) continue; // Skip obstacles
+                    
+                    let gCost = current.g + (n.x !== 0 && n.y !== 0 ? 1.414 : 1) + weight; // Adds water penalty natively
                     let hCost = Math.hypot(goalX - nx, goalY - ny);
                     let fCost = gCost + hCost;
                     
@@ -5953,61 +5985,42 @@
             let myX = _0x466240.x;
             let myY = _0x466240.y;
             
-            // Digging conditions
-            let isOutOfBoundsTargetX = (this.targetX < 0 || this.targetX > this.mapSize);
-            let isOutOfBoundsTargetY = (this.targetY < 0 || this.targetY > this.mapSize);
-            // Verify if we actually reached the specific boundary required to execute digging
-            let isNearBoundaryX = (this.targetX < 0 && myX < 150) || (this.targetX > this.mapSize && myX > this.mapSize - 150);
-            let isNearBoundaryY = (this.targetY < 0 && myY < 150) || (this.targetY > this.mapSize && myY > this.mapSize - 150);
-
-            if ((isOutOfBoundsTargetX && isNearBoundaryX) || (isOutOfBoundsTargetY && isNearBoundaryY) || (isOutOfBoundsTargetX && isOutOfBoundsTargetY && (isNearBoundaryX || isNearBoundaryY))) {
-                
-                let angle = Math.atan2(this.targetY - myY, this.targetX - myX);
-                _0x965f53(angle); // Look exactly towards where we want to dig
-                
-                let batId = this.getBatId();
-                if (_0x466240.item && _0x466240.item.id !== batId) {
-                    _0xb6b4d7(batId); // Equip bat to break boundary
-                }
-                
-                // Force movement straight into boundary (Push into the void)
-                _0x4cfb62.KeyW = (this.targetY - myY < -20);
-                _0x4cfb62.KeyS = (this.targetY - myY > 20);
-                _0x4cfb62.KeyA = (this.targetX - myX < -20);
-                _0x4cfb62.KeyD = (this.targetX - myX > 20);
-                
-                _0x4cfb62.mouse0 = true; // Auto Attack
-                _0x5629b9();
+            // Has arrived check (Tolerance of 50 coords)
+            if (Math.hypot(this.targetX - myX, this.targetY - myY) <= 50) {
+                this.active = false;
+                this.resetKeys();
+                _0x336d9a("Autoplay: Arrived successfully");
                 return;
-            } else {
-                _0x4cfb62.mouse0 = false; // Stop attacking if not digging
             }
 
             // Recalculate A* Environment every 500ms to adapt to changing environments 
             if (Date.now() - this.lastPathTime > 500) {
-                let startGridX = Math.floor(myX / this.gridSize);
-                let startGridY = Math.floor(myY / this.gridSize);
+                let startGridX = this.worldToGrid(myX);
+                let startGridY = this.worldToGrid(myY);
                 
-                let goalGridX = Math.floor(Math.max(0, Math.min(this.mapSize, this.targetX)) / this.gridSize);
-                let goalGridY = Math.floor(Math.max(0, Math.min(this.mapSize, this.targetY)) / this.gridSize);
+                let goalGridX = this.worldToGrid(this.targetX);
+                let goalGridY = this.worldToGrid(this.targetY);
                 
                 this.path = this.aStar(startGridX, startGridY, goalGridX, goalGridY);
                 this.lastPathTime = Date.now();
             }
 
+            let wpX = this.targetX;
+            let wpY = this.targetY;
+
             // Path Following Execution
             if (this.path && this.path.length > 0) {
                 let wp = this.path[0];
-                let wpX = wp.x * this.gridSize + (this.gridSize / 2);
-                let wpY = wp.y * this.gridSize + (this.gridSize / 2);
+                wpX = this.gridToWorld(wp.x);
+                wpY = this.gridToWorld(wp.y);
                 
                 // If close to intermediate waypoint, progress to the next
                 let dist = Math.hypot(wpX - myX, wpY - myY);
                 if (dist < this.gridSize && this.path.length > 1) {
                     this.path.shift();
                     wp = this.path[0];
-                    wpX = wp.x * this.gridSize + (this.gridSize / 2);
-                    wpY = wp.y * this.gridSize + (this.gridSize / 2);
+                    wpX = this.gridToWorld(wp.x);
+                    wpY = this.gridToWorld(wp.y);
                 }
                 
                 // Absolute destination aiming for the final node
@@ -6015,46 +6028,45 @@
                     wpX = this.targetX;
                     wpY = this.targetY;
                 }
-
-                let dx = wpX - myX;
-                let dy = wpY - myY;
-                
-                // Arrived
-                if (Math.hypot(this.targetX - myX, this.targetY - myY) < 20) {
-                    this.active = false;
-                    this.resetKeys();
-                    _0x336d9a("Autoplay: Arrived successfully");
-                    return;
-                }
-
-                // Calculate Keyboard inputs based on displacement
-                _0x4cfb62.KeyW = (dy < -20);
-                _0x4cfb62.KeyS = (dy > 20);
-                _0x4cfb62.KeyA = (dx < -20);
-                _0x4cfb62.KeyD = (dx > 20);
-                
-                _0x965f53(Math.atan2(dy, dx)); // Send angle
-                _0x5629b9(); // Send keyboard mock packet
-            } else {
-                // Failsafe: Direct-line approach if pathfinding bugs out
-                let dx = this.targetX - myX;
-                let dy = this.targetY - myY;
-                
-                if (Math.hypot(dx, dy) < 20) {
-                    this.active = false;
-                    this.resetKeys();
-                    _0x336d9a("Autoplay: Arrived");
-                    return;
-                }
-
-                _0x4cfb62.KeyW = (dy < -20);
-                _0x4cfb62.KeyS = (dy > 20);
-                _0x4cfb62.KeyA = (dx < -20);
-                _0x4cfb62.KeyD = (dx > 20);
-                
-                _0x965f53(Math.atan2(dy, dx));
-                _0x5629b9();
             }
+
+            let dx = wpX - myX;
+            let dy = wpY - myY;
+            let angle = Math.atan2(dy, dx);
+            
+            // --- SMART DIGGING LOGIC ---
+            // Determines if the bot is attempting to push through the map boundary line
+            let isDigging = false;
+            let borderDist = 60; // Trigger distance from map edge
+
+            let crossingOutX = (myX < borderDist && dx < 0) || (myX > this.mapSize - borderDist && dx > 0);
+            let crossingInX  = (myX < 0 && myX > -borderDist && dx > 0) || (myX > this.mapSize && myX < this.mapSize + borderDist && dx < 0);
+            
+            let crossingOutY = (myY < borderDist && dy < 0) || (myY > this.mapSize - borderDist && dy > 0);
+            let crossingInY  = (myY < 0 && myY > -borderDist && dy > 0) || (myY > this.mapSize && myY < this.mapSize + borderDist && dy < 0);
+            
+            if (crossingOutX || crossingInX || crossingOutY || crossingInY) {
+                isDigging = true;
+            }
+
+            if (isDigging) {
+                let batId = this.getBatId();
+                if (_0x466240.item && _0x466240.item.id !== batId) {
+                    _0xb6b4d7(batId); // Swap to bat
+                }
+                _0x4cfb62.mouse0 = true; // Auto Attack
+                _0x965f53(angle); // Force angle only when digging
+            } else {
+                _0x4cfb62.mouse0 = false;
+            }
+
+            // Calculate Keyboard inputs based on displacement
+            _0x4cfb62.KeyW = (dy < -20);
+            _0x4cfb62.KeyS = (dy > 20);
+            _0x4cfb62.KeyA = (dx < -20);
+            _0x4cfb62.KeyD = (dx > 20);
+            
+            _0x5629b9(); // Apply inputs
         }
     };
     
