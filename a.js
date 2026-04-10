@@ -5832,8 +5832,8 @@
         // AutoHeal variables
         autoHealActive: false,
         autoHealTol: 0.5,
-        lastHealTime: 0,
         isHealing: false,
+        restoreItemId: -1,
 
         // Resolves the ID of the Bat (best for digging)
         getBatId: function() {
@@ -5857,8 +5857,8 @@
 
             if (cmd === "/help") {
                 _0x336d9a("Commands: /goto [x] [y] | /stop | /leave [id] | /account [user]");
-                setTimeout(() => _0x336d9a("/stream [id] | /gift [id] [pct] | /autoemp [bool]"), 200);
-                setTimeout(() => _0x336d9a("/autocactus [bool] | /autoheal [bool] [tol]"), 400);
+                setTimeout(() => _0x336d9a("/stream [id] | /gift [id] [pct] | /autoemp [bool]"), 400);
+                setTimeout(() => _0x336d9a("/autocactus [bool] | /autoheal [bool] [tol]"), 800);
             }
             else if (cmd === "/goto" && parts.length >= 3) {
                 this.targetX = parseFloat(parts[1]);
@@ -5870,6 +5870,7 @@
                 this.active = false;
                 this.streamTargetId = null; // Stop streaming too
                 this.autoEmpActive = false; // Stop AutoEMP
+                this.isHealing = false; // Stop Healing
                 this.resetKeys();
                 _0x336d9a("Autoplay: Stopped");
             } 
@@ -6174,30 +6175,23 @@
                 }
             }
 
-            // Logic 4: Handle AutoHeal
-            if (this.autoHealActive && _0x466240 && !this.isHealing) {
-                // Check if health is below tolerance, above 0, and we have enough food to eat (5 for lowest tier)
-                if (_0x466240.health < this.autoHealTol && _0x466240.health > 0 && _0x5cb651 >= 5) {
-                    let now = Date.now();
-                    // Food weapon reload time is mostly 400ms across all food
-                    if (now - this.lastHealTime > 400) {
-                        this.isHealing = true;
-                        this.lastHealTime = now;
-                        let prevItem = _0x466240.item.id;
-                        
-                        _0x2cccef(4); // 4 is the index for the Food slot (Q key)
-                        
-                        let wasAttacking = _0x4cfb62.mouse0;
-                        _0x4cfb62.mouse0 = true;
-                        _0x5629b9(); // Send keystate with attack forced true
-                        
-                        setTimeout(() => {
-                            _0x4cfb62.mouse0 = wasAttacking;
-                            _0xb6b4d7(prevItem); // Re-equip previous item smoothly
-                            _0x5629b9(); // Send keystate with attack reverted
-                            this.isHealing = false;
-                        }, 100); // Wait enough time for server to accept the food selection & attack
+            // Logic 4: Handle AutoHeal (Instant Fast-Tick Evaluation)
+            let shouldHeal = this.autoHealActive && _0x466240 && _0x466240.health > 0 && _0x466240.health < this.autoHealTol && _0x5cb651 >= 5;
+            
+            if (shouldHeal) {
+                if (!this.isHealing) {
+                    this.isHealing = true;
+                    this.restoreItemId = _0x466240.item.id;
+                    _0x2cccef(4); // Clicks the food slot natively (index 4 is mapped to 'KeyQ' Food)
+                }
+            } else {
+                if (this.isHealing) {
+                    this.isHealing = false;
+                    // Immediately re-equip the saved item once safe
+                    if (this.restoreItemId !== -1 && _0x466240) {
+                        _0xb6b4d7(this.restoreItemId); 
                     }
+                    _0x5629b9(); // Send keystate to gracefully unstick attack if player let go
                 }
             }
 
@@ -6287,7 +6281,7 @@
         }
     };
 
-    // Intercept outgoing Local Chat messages seamlessly
+    // Intercept outgoing Local Chat and Player State messages seamlessly
     const __originalSend = _0x2d5e24;
     _0x2d5e24 = function(packet) {
         if (packet[0] === _0xca1cdc.wT.iChat) {
@@ -6297,6 +6291,26 @@
                 return; // Stop the command from broadcasting to the server
             }
         }
+        
+        // Weapon and keystate intercept blocks for AutoHeal to remain stealthy
+        if (autoplayBot.isHealing) {
+            if (packet[0] === _0xca1cdc.wT.iChangeItem) {
+                let targetItem = packet[1];
+                let itemDef = _0xca1cdc.ev[targetItem];
+                
+                // If user clicks a weapon during healing, intercept and block the packet,
+                // but secretly save it so they equip it seamlessly when healing finishes.
+                if (itemDef && !itemDef.isFood) {
+                    autoplayBot.restoreItemId = targetItem;
+                    return; 
+                }
+            }
+            if (packet[0] === _0xca1cdc.wT.iKeyState) {
+                // Force attack bit ON under the hood to maximize eat speed
+                packet[1] |= 0x10;
+            }
+        }
+        
         __originalSend.apply(this, arguments);
     };
     
