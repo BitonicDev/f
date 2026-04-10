@@ -5815,7 +5815,11 @@
         gridSize: 100, // Coarse grid for fast A* processing
         mapSize: _0xca1cdc.KN || 10000, 
         gridOffset: 1000, // Expanded bounds to allow pathfinding outside the map
-        lastChats: {},
+        
+        // Stream variables
+        streamTargetId: null,
+        lastStreamTime: 0,
+        streamInterval: 5000, // 5 seconds (standard server gift throttle)
 
         // Resolves the ID of the Bat (best for digging)
         getBatId: function() {
@@ -5833,22 +5837,7 @@
             return (val * this.gridSize) - this.gridOffset + (this.gridSize / 2);
         },
 
-        // Checks all players' chat properties to accept Remote Commands
-        pollChats: function() {
-            for (let id in _0x4cf941) {
-                let ent = _0x4cf941[id];
-                if (ent.isPlayer && ent.chat && ent.chat !== this.lastChats[id]) {
-                    this.lastChats[id] = ent.chat;
-                    if (ent.chat.startsWith("/")) {
-                        this.handleCommand(ent.chat, false); // false = Remote Command
-                    }
-                } else if (!ent.chat) {
-                    this.lastChats[id] = null;
-                }
-            }
-        },
-
-        handleCommand: function(msg, isLocal) {
+        handleCommand: function(msg) {
             let parts = msg.trim().split(" ");
             let cmd = parts[0];
 
@@ -5856,35 +5845,57 @@
                 this.targetX = parseFloat(parts[1]);
                 this.targetY = parseFloat(parts[2]);
                 this.active = true;
-                _0x336d9a((isLocal ? "Local" : "Remote") + " Autoplay: Navigating to " + this.targetX + ", " + this.targetY);
+                _0x336d9a("Autoplay: Navigating to " + this.targetX + ", " + this.targetY);
             } 
             else if (cmd === "/stop") {
                 this.active = false;
+                this.streamTargetId = null; // Stop streaming too
                 this.resetKeys();
-                _0x336d9a((isLocal ? "Local" : "Remote") + " Autoplay: Stopped");
+                _0x336d9a("Autoplay: Stopped");
             } 
-            else if (cmd === "/leave" && isLocal) {
+            else if (cmd === "/leave") {
                 let targetId = parseInt(parts[1]);
                 if (!isNaN(targetId)) {
-                    this.leaveAndGift(targetId);
+                    if (this.sendGift(targetId)) {
+                        _0x336d9a("Gifted mats. Reconnecting...");
+                        setTimeout(() => {
+                            if (_0x419dc9 && _0x419dc9.url) {
+                                window.connect(_0x419dc9.url);
+                            }
+                        }, 100);
+                    }
+                }
+            }
+            else if (cmd === "/stream") {
+                let targetId = parseInt(parts[1]);
+                if (!isNaN(targetId)) {
+                    let members = _0x311e82.children;
+                    if (members.length <= 1 || targetId < 0 || targetId >= members.length || members[targetId].isMe) {
+                        _0x336d9a("Stream Refused: Invalid clan member.");
+                    } else {
+                        this.streamTargetId = targetId;
+                        this.lastStreamTime = 0; // Force immediate first gift
+                        _0x336d9a("Autoplay: Streaming mats to member " + targetId);
+                    }
                 }
             }
         },
 
-        leaveAndGift: function(targetId) {
+        // Core gifting logic used by both /leave and /stream
+        sendGift: function(targetId) {
             let members = _0x311e82.children; // Accesses the DOM Clan List
             
             if (members.length <= 1) {
                 _0x336d9a("Action Refused: No one else in the clan.");
-                return;
+                return false;
             }
             if (targetId < 0 || targetId >= members.length) {
                 _0x336d9a("Action Refused: Invalid clan member ID.");
-                return;
+                return false;
             }
             if (members[targetId].isMe) {
                 _0x336d9a("Action Refused: You cannot gift to yourself.");
-                return;
+                return false;
             }
 
             // Build Gift Packet using game's bitmask layout
@@ -5907,17 +5918,9 @@
                     offset += 4;
                 }
                 __originalSend(new Uint8Array(buffer));
-                _0x336d9a("Gifted all mats to clan member " + targetId);
-            } else {
-                _0x336d9a("No mats to gift. Reconnecting...");
+                return true;
             }
-
-            // Disconnect and reconnect to current server immediately
-            setTimeout(() => {
-                if (_0x419dc9 && _0x419dc9.url) {
-                    window.connect(_0x419dc9.url);
-                }
-            }, 100);
+            return false;
         },
 
         resetKeys: function() {
@@ -5929,7 +5932,7 @@
             _0x5629b9(); // Send stop packet
         },
 
-        // Creates a collision map array avoiding objects (Lag-free standard)
+        // Creates a collision map array avoiding objects
         buildGrid: function() {
             let cells = Math.ceil((this.mapSize + (this.gridOffset * 2)) / this.gridSize);
             let grid = new Array(cells).fill(0).map(() => new Array(cells).fill(0));
@@ -5971,7 +5974,6 @@
             let closedSet = new Uint8Array(cells * cells);
             
             while(openSet.length > 0) {
-                // Sort by cheapest heuristic
                 openSet.sort((a, b) => a.f - b.f);
                 let current = openSet.shift();
                 
@@ -5987,7 +5989,7 @@
                 
                 let idx = current.x + current.y * cells;
                 if(closedSet[idx]) continue;
-                closedSet[idx] = 1; // Mark node calculated
+                closedSet[idx] = 1;
                 
                 // Explore 8 directions
                 let neighbors = [
@@ -6000,7 +6002,7 @@
                     let ny = current.y + n.y;
                     
                     if(nx < 0 || ny < 0 || nx >= cells || ny >= cells) continue;
-                    if(grid[nx][ny] === 1) continue; // Skip obstacles
+                    if(grid[nx][ny] === 1) continue; 
                     
                     let gCost = current.g + (n.x !== 0 && n.y !== 0 ? 1.414 : 1);
                     let hCost = Math.hypot(goalX - nx, goalY - ny);
@@ -6009,17 +6011,32 @@
                     openSet.push({x: nx, y: ny, g: gCost, f: fCost, parent: current});
                 }
             }
-            return null; // No path found
+            return null;
         },
 
         update: function() {
-            this.pollChats();
+            // Handle Streaming 
+            if (this.streamTargetId !== null) {
+                let now = Date.now();
+                if (now - this.lastStreamTime > this.streamInterval) {
+                    // Try to send gift, if it returns false due to invalid target, cancel stream
+                    let members = _0x311e82.children;
+                    if (this.streamTargetId >= members.length || members.length <= 1) {
+                        this.streamTargetId = null;
+                        _0x336d9a("Autoplay: Stream ended (target missing)");
+                    } else {
+                        this.sendGift(this.streamTargetId);
+                        this.lastStreamTime = now;
+                    }
+                }
+            }
+
             if (!this.active || !_0x466240) return;
             
             let myX = _0x466240.x;
             let myY = _0x466240.y;
             
-            // Has arrived check (Tolerance of 50 coords)
+            // Has arrived check
             if (Math.hypot(this.targetX - myX, this.targetY - myY) <= 50) {
                 this.active = false;
                 this.resetKeys();
@@ -6027,7 +6044,7 @@
                 return;
             }
 
-            // Recalculate A* Environment every 500ms to adapt to changing environments 
+            // Recalculate A* Environment every 500ms
             if (Date.now() - this.lastPathTime > 500) {
                 let startGridX = this.worldToGrid(myX);
                 let startGridY = this.worldToGrid(myY);
@@ -6047,7 +6064,6 @@
                 wpX = this.gridToWorld(wp.x);
                 wpY = this.gridToWorld(wp.y);
                 
-                // If close to intermediate waypoint, progress to the next
                 let dist = Math.hypot(wpX - myX, wpY - myY);
                 if (dist < this.gridSize && this.path.length > 1) {
                     this.path.shift();
@@ -6056,7 +6072,6 @@
                     wpY = this.gridToWorld(wp.y);
                 }
                 
-                // Absolute destination aiming for the final node
                 if (this.path.length === 1) {
                     wpX = this.targetX;
                     wpY = this.targetY;
@@ -6069,7 +6084,7 @@
             
             // --- SMART DIGGING LOGIC ---
             let isDigging = false;
-            let borderDist = 60; // Trigger distance from map edge
+            let borderDist = 60;
 
             let crossingOutX = (myX < borderDist && dx < 0) || (myX > this.mapSize - borderDist && dx > 0);
             let crossingInX  = (myX < 0 && myX > -borderDist && dx > 0) || (myX > this.mapSize && myX < this.mapSize + borderDist && dx < 0);
@@ -6084,21 +6099,20 @@
             if (isDigging) {
                 let batId = this.getBatId();
                 if (_0x466240.item && _0x466240.item.id !== batId) {
-                    _0xb6b4d7(batId); // Swap to bat
+                    _0xb6b4d7(batId);
                 }
-                _0x4cfb62.mouse0 = true; // Auto Attack
-                _0x965f53(angle); // Force angle only when digging
+                _0x4cfb62.mouse0 = true;
+                _0x965f53(angle);
             } else {
                 _0x4cfb62.mouse0 = false;
             }
 
-            // Calculate Keyboard inputs based on displacement
             _0x4cfb62.KeyW = (dy < -20);
             _0x4cfb62.KeyS = (dy > 20);
             _0x4cfb62.KeyA = (dx < -20);
             _0x4cfb62.KeyD = (dx > 20);
             
-            _0x5629b9(); // Apply inputs
+            _0x5629b9();
         }
     };
 
@@ -6108,15 +6122,15 @@
         if (packet[0] === _0xca1cdc.wT.iChat) {
             let msg = new TextDecoder().decode(packet.slice(1));
             if (msg.startsWith("/")) {
-                autoplayBot.handleCommand(msg, true); // Process as a local command
-                return; // Stop the command from broadcasting in-game
+                autoplayBot.handleCommand(msg);
+                return; // Stop the command from broadcasting to the server
             }
         }
         __originalSend.apply(this, arguments);
     };
     
-    // Bind bot updates natively to 30 frames a second
-    setInterval(() => autoplayBot.update(), 1000 / 30);
+    // Bind bot updates natively to 60 frames a second (matching tickrate)
+    setInterval(() => autoplayBot.update(), 1000 / 60);
     // === END AUTOPLAY BOT ===
     _0x3c0ef4();
   })();
