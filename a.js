@@ -610,7 +610,7 @@
         'foodReward': 0x1,
         'stoneReward': 0x4,
         'goldReward': 0xa,
-        'moveSpeed': 9.9,
+        'moveSpeed': 0.9,
         'uiY': 0xa,
         'uiX': -0x5,
         'uiScale': 0x1,
@@ -648,7 +648,7 @@
         'woodCost': 0x3c,
         'stoneCost': 0x3c,
         'goldCost': 0xfa,
-        'desc': "Causes a small explosion when someone walks over it.",
+        'desc': "Cuases a small explosion when someone walks over it.",
         'blockHealth': 0x3,
         'isExplosive': true,
         'explodeRange': 0x64,
@@ -5805,253 +5805,262 @@
     window.connect = _0x101619;
     _0x17eee1.style.display = _0x1e6d5b.style.display = 'none';
     _0x2fc9ad.appendChild(_0x3ea805);
-    _0x3c0ef4();
-// MOD START
-(() => {
-    // --- SETTINGS & STATE ---
-    const state = {
-        swapEnabled: false,
-        buyEnabled: false,
-        autoCactus: false,
-        baseHatId: 11, 
-        empId: 9,      
-        delay: 0,
-        lastSwitch: 0,
-        pendingBuy: -1,
-        currentEquipped: -1,
-        guiVisible: true,
-        isDragging: false,
-        dragOffset: { x: 0, y: 0 },
-        storageWasOpen: false
-    };
+// === AUTOPLAY BOT ===
+    const autoplayBot = {
+        active: false,
+        targetX: 0,
+        targetY: 0,
+        path: [],
+        lastPathTime: 0,
+        gridSize: 100, // Coarse grid for fast A* processing
+        mapSize: _0xca1cdc.KN || 10000, 
+        lastChats: {},
 
-    const hatList = [
-        "Cow", "Duck", "Piggy", "Bear", "Pixel", "Bush", "Tree", 
-        "Stone", "EMP", "Tube", "Tail", "Mole", "Eye", "Medic"
-    ];
+        // Resolves the ID of the Bat (best for digging)
+        getBatId: function() {
+            for (let i = 0; i < _0xca1cdc.ev.length; i++) {
+                if (_0xca1cdc.ev[i] && _0xca1cdc.ev[i].name === "Bat") return _0xca1cdc.ev[i].id;
+            }
+            return 2; // Fallback ID
+        },
 
-    // --- GUI STYLING ---
-    const style = document.createElement('style');
-    style.innerHTML = `
-        #utility-gui {
-            position: fixed; top: 120px; right: 30px; width: 260px;
-            background: rgba(15, 15, 20, 0.85); backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px;
-            padding: 0; color: #f0f0f0; font-family: system-ui, -apple-system, sans-serif;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.04);
-            z-index: 1000000; user-select: none; transition: opacity 0.2s ease, transform 0.2s ease;
-        }
-        #gui-header {
-            padding: 12px 16px; cursor: move; background: rgba(0, 0, 0, 0.2);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px 12px 0 0;
-            display: flex; justify-content: center; align-items: center;
-        }
-        .gui-title { font-size: 13px; font-weight: 600; color: #e0e0e0; letter-spacing: 0.3px; text-transform: uppercase; }
-        .gui-content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-        .gui-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-        .gui-label { color: #aaa; font-weight: 500; }
-        
-        /* Sleek Toggle Switches */
-        .toggle-switch { position: relative; width: 34px; height: 18px; }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .3s; border-radius: 20px; }
-        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: #aaa; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background-color: rgba(64, 209, 255, 0.15); border: 1px solid rgba(64, 209, 255, 0.4); bottom: -1px; left: -1px; right: -1px; top: -1px;}
-        input:checked + .slider:before { transform: translateX(16px); background-color: #40d1ff; box-shadow: 0 0 6px rgba(64, 209, 255, 0.5); }
+        // Checks all players' chat properties every tick
+        pollChats: function() {
+            for (let id in _0x4cf941) {
+                let ent = _0x4cf941[id];
+                if (ent.isPlayer && ent.chat && ent.chat !== this.lastChats[id]) {
+                    this.lastChats[id] = ent.chat;
+                    this.handleCommand(ent.chat);
+                } else if (!ent.chat) {
+                    this.lastChats[id] = null;
+                }
+            }
+        },
 
-        /* Inputs and Selects */
-        .gui-select, .gui-input { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; padding: 4px 8px; font-size: 12px; outline: none; transition: all 0.2s; cursor: pointer; }
-        .gui-select:hover, .gui-input:hover { border-color: rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); }
-        .gui-select:focus { border-color: #40d1ff; }
-        .gui-select option { background: #151518; color: #fff; }
-        
-        .divider { height: 1px; background: rgba(255,255,255,0.05); margin: 2px 0; }
-        .gui-hint { font-size: 10px; color: #666; text-align: center; margin-top: 4px; font-weight: 500; }
-    `;
-    document.head.appendChild(style);
+        handleCommand: function(msg) {
+            if (msg.startsWith("/goto ")) {
+                let parts = msg.split(" ");
+                if (parts.length >= 3) {
+                    this.targetX = parseFloat(parts[1]);
+                    this.targetY = parseFloat(parts[2]);
+                    this.active = true;
+                    _0x336d9a("Autoplay: Navigating to " + this.targetX + ", " + this.targetY); // UI Notification
+                }
+            } else if (msg === "/stop") {
+                this.active = false;
+                this.resetKeys();
+                _0x336d9a("Autoplay: Stopped");
+            }
+        },
 
-    const gui = document.createElement('div');
-    gui.id = 'utility-gui';
-    gui.innerHTML = `
-        <div id="gui-header">
-            <span class="gui-title">Utility Panel</span>
-        </div>
-        <div class="gui-content">
-            <div class="gui-row">
-                <span class="gui-label">Auto-Swap</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="swap-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="gui-row">
-                <span class="gui-label">Auto-Buy</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="buy-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="gui-row">
-                <span class="gui-label">Auto-Cactus</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="cactus-toggle">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="divider"></div>
-            <div class="gui-row">
-                <span class="gui-label">Main Hat</span>
-                <select id="base-hat-select" class="gui-select">
-                    ${hatList.map((name, i) => `<option value="${i+1}" ${name === 'Tail' ? 'selected' : ''}>${name}</option>`).join('')}
-                </select>
-            </div>
-            <div class="gui-row">
-                <span class="gui-label">Delay (ms)</span>
-                <input type="number" id="swap-delay" class="gui-input" value="0" min="0" step="50" style="width: 60px;">
-            </div>
-            <div class="gui-hint">Press ALT + K to toggle menu</div>
-        </div>
-    `;
-    document.body.appendChild(gui);
+        resetKeys: function() {
+            _0x4cfb62.KeyW = false;
+            _0x4cfb62.KeyS = false;
+            _0x4cfb62.KeyA = false;
+            _0x4cfb62.KeyD = false;
+            _0x4cfb62.mouse0 = false;
+            _0x5629b9(); // Send stop packet
+        },
 
-    // --- GUI LOGIC (DRAGGING / TOGGLES) ---
-    const header = document.getElementById('gui-header');
-    header.addEventListener('mousedown', (e) => {
-        state.isDragging = true;
-        state.dragOffset.x = e.clientX - gui.offsetLeft;
-        state.dragOffset.y = e.clientY - gui.offsetTop;
-    });
+        // Creates a collision map array avoiding objects (trees, stones, spikes, walls)
+        buildGrid: function() {
+            let cells = Math.ceil(this.mapSize / this.gridSize) + 1;
+            let grid = new Array(cells).fill(0).map(() => new Array(cells).fill(0));
+            
+            for (let i = 0; i < _0x5a712e.length; i++) {
+                let ent = _0x5a712e[i];
+                if (ent === _0x466240 || ent.isDead) continue;
+                
+                // If it's solid map geometry or a trap
+                if (!ent.isPlayer && !ent.isProj && !ent.isDisplay && !ent.isHole) {
+                    let cx = Math.floor(ent.x / this.gridSize);
+                    let cy = Math.floor(ent.y / this.gridSize);
+                    // Add padding to ensure the bot doesn't clip corners
+                    let radius = Math.ceil((ent.size + 40) / this.gridSize); 
+                    
+                    for (let dx = -radius; dx <= radius; dx++) {
+                        for (let dy = -radius; dy <= radius; dy++) {
+                            let nx = cx + dx, ny = cy + dy;
+                            if (nx >= 0 && nx < cells && ny >= 0 && ny < cells) {
+                                grid[nx][ny] = 1;
+                            }
+                        }
+                    }
+                }
+            }
+            return { grid, cells };
+        },
 
-    window.addEventListener('mousemove', (e) => {
-        if (state.isDragging) {
-            gui.style.left = (e.clientX - state.dragOffset.x) + 'px';
-            gui.style.top = (e.clientY - state.dragOffset.y) + 'px';
-            gui.style.right = 'auto';
-        }
-    });
+        // Finds the best path that circumvents obstacles and dead-ends
+        aStar: function(startX, startY, goalX, goalY) {
+            let { grid, cells } = this.buildGrid();
+            
+            // Constrain targets heavily to within the calculated grid
+            startX = Math.max(0, Math.min(cells - 1, startX));
+            startY = Math.max(0, Math.min(cells - 1, startY));
+            goalX = Math.max(0, Math.min(cells - 1, goalX));
+            goalY = Math.max(0, Math.min(cells - 1, goalY));
 
-    window.addEventListener('mouseup', () => state.isDragging = false);
+            let openSet = [{x: startX, y: startY, g: 0, f: 0, parent: null}];
+            let closedSet = new Uint8Array(cells * cells);
+            
+            while(openSet.length > 0) {
+                // Sort by cheapest heuristic
+                openSet.sort((a, b) => a.f - b.f);
+                let current = openSet.shift();
+                
+                if (current.x === goalX && current.y === goalY) {
+                    let path = [];
+                    let curr = current;
+                    while(curr) {
+                        path.push({x: curr.x, y: curr.y});
+                        curr = curr.parent;
+                    }
+                    return path.reverse();
+                }
+                
+                let idx = current.x + current.y * cells;
+                if(closedSet[idx]) continue;
+                closedSet[idx] = 1; // Mark node calculated
+                
+                // Explore 8 directions (diagonal movement enabled)
+                let neighbors = [
+                    {x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0},
+                    {x: -1, y: -1}, {x: 1, y: -1}, {x: -1, y: 1}, {x: 1, y: 1}
+                ];
+                
+                for(let n of neighbors) {
+                    let nx = current.x + n.x;
+                    let ny = current.y + n.y;
+                    
+                    if(nx < 0 || ny < 0 || nx >= cells || ny >= cells) continue;
+                    if(grid[nx][ny] === 1) continue; // Skip obstacles
+                    
+                    let gCost = current.g + (n.x !== 0 && n.y !== 0 ? 1.414 : 1);
+                    let hCost = Math.hypot(goalX - nx, goalY - ny);
+                    let fCost = gCost + hCost;
+                    
+                    openSet.push({x: nx, y: ny, g: gCost, f: fCost, parent: current});
+                }
+            }
+            return null; // No path found
+        },
 
-    window.addEventListener('keydown', (e) => {
-        if (e.altKey && e.code === 'KeyK') {
-            state.guiVisible = !state.guiVisible;
-            if (state.guiVisible) {
-                gui.style.opacity = '1';
-                gui.style.transform = 'scale(1)';
-                gui.style.pointerEvents = 'all';
+        update: function() {
+            this.pollChats();
+            if (!this.active || !_0x466240) return;
+            
+            let myX = _0x466240.x;
+            let myY = _0x466240.y;
+            
+            // Digging conditions
+            let isOutOfBoundsTargetX = (this.targetX < 0 || this.targetX > this.mapSize);
+            let isOutOfBoundsTargetY = (this.targetY < 0 || this.targetY > this.mapSize);
+            // Verify if we actually reached the specific boundary required to execute digging
+            let isNearBoundaryX = (this.targetX < 0 && myX < 150) || (this.targetX > this.mapSize && myX > this.mapSize - 150);
+            let isNearBoundaryY = (this.targetY < 0 && myY < 150) || (this.targetY > this.mapSize && myY > this.mapSize - 150);
+
+            if ((isOutOfBoundsTargetX && isNearBoundaryX) || (isOutOfBoundsTargetY && isNearBoundaryY) || (isOutOfBoundsTargetX && isOutOfBoundsTargetY && (isNearBoundaryX || isNearBoundaryY))) {
+                
+                let angle = Math.atan2(this.targetY - myY, this.targetX - myX);
+                _0x965f53(angle); // Look exactly towards where we want to dig
+                
+                let batId = this.getBatId();
+                if (_0x466240.item && _0x466240.item.id !== batId) {
+                    _0xb6b4d7(batId); // Equip bat to break boundary
+                }
+                
+                // Force movement straight into boundary (Push into the void)
+                _0x4cfb62.KeyW = (this.targetY - myY < -20);
+                _0x4cfb62.KeyS = (this.targetY - myY > 20);
+                _0x4cfb62.KeyA = (this.targetX - myX < -20);
+                _0x4cfb62.KeyD = (this.targetX - myX > 20);
+                
+                _0x4cfb62.mouse0 = true; // Auto Attack
+                _0x5629b9();
+                return;
             } else {
-                gui.style.opacity = '0';
-                gui.style.transform = 'scale(0.95)';
-                gui.style.pointerEvents = 'none';
+                _0x4cfb62.mouse0 = false; // Stop attacking if not digging
             }
-        }
-    });
 
-    // Control Mappings
-    document.getElementById('swap-toggle').onchange = (e) => state.swapEnabled = e.target.checked;
-    document.getElementById('buy-toggle').onchange = (e) => state.buyEnabled = e.target.checked;
-    document.getElementById('cactus-toggle').onchange = (e) => state.autoCactus = e.target.checked;
-    document.getElementById('base-hat-select').onchange = (e) => state.baseHatId = parseInt(e.target.value);
-    document.getElementById('swap-delay').oninput = (e) => state.delay = parseInt(e.target.value) || 0;
+            // Recalculate A* Environment every 500ms to adapt to changing environments 
+            if (Date.now() - this.lastPathTime > 500) {
+                let startGridX = Math.floor(myX / this.gridSize);
+                let startGridY = Math.floor(myY / this.gridSize);
+                
+                let goalGridX = Math.floor(Math.max(0, Math.min(this.mapSize, this.targetX)) / this.gridSize);
+                let goalGridY = Math.floor(Math.max(0, Math.min(this.mapSize, this.targetY)) / this.gridSize);
+                
+                this.path = this.aStar(startGridX, startGridY, goalGridX, goalGridY);
+                this.lastPathTime = Date.now();
+            }
 
-    // --- GAME HELPERS ---
-    function isHatOwned(id) {
-        const skinEl = _0x5691f4[id - 1];
-        return skinEl ? skinEl.querySelector('.shop-btn').style.display === 'none' : true;
-    }
-
-    function getRange(type) {
-        const item = _0xca1cdc.ev.find(i => i.placeBlock === type);
-        return (item ? (item.cannonRange || 450) : 450) + 80;
-    }
-  
-    // --- CONSOLIDATED FAST UPDATE ---
-    function tick() {
-        if (!_0x466240 || _0x466240.isDead) return;
-        const now = Date.now();
-
-        // 1. High-Frequency Auto-Buy
-        if (state.buyEnabled) {
-            const hatIndex = state.baseHatId - 1;
-            const hatData = _0xca1cdc.WM[hatIndex];
-            
-            if (hatData && _0x4e3cab >= hatData.cost && !isHatOwned(state.baseHatId)) {
-                if (state.pendingBuy !== state.baseHatId) {
-                    _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iBuySkin, hatIndex]));
-                    _0x336d9a("[Auto-Buy]: Bought " + hatData.name);
-                    state.pendingBuy = state.baseHatId;
+            // Path Following Execution
+            if (this.path && this.path.length > 0) {
+                let wp = this.path[0];
+                let wpX = wp.x * this.gridSize + (this.gridSize / 2);
+                let wpY = wp.y * this.gridSize + (this.gridSize / 2);
+                
+                // If close to intermediate waypoint, progress to the next
+                let dist = Math.hypot(wpX - myX, wpY - myY);
+                if (dist < this.gridSize && this.path.length > 1) {
+                    this.path.shift();
+                    wp = this.path[0];
+                    wpX = wp.x * this.gridSize + (this.gridSize / 2);
+                    wpY = wp.y * this.gridSize + (this.gridSize / 2);
                 }
-            } else if (isHatOwned(state.baseHatId)) {
-                state.pendingBuy = -1;
-            }
-        }
-
-        // 2. High-Frequency Auto-Swap
-        if (state.swapEnabled) {
-            if (state.delay > 0 && (now - state.lastSwitch < state.delay)) return;
-
-            let danger = false;
-            const ents = _0x5a712e;
-            for (let i = 0; i < ents.length; i++) {
-                const ent = ents[i];
-                if (ent.isCannon && !ent.isDead) {
-                    const dist = Math.hypot(ent.x - _0x466240.x, ent.y - _0x466240.y);
-                    if (dist <= getRange(ent.type)) {
-                        danger = true;
-                        break;
-                    }
+                
+                // Absolute destination aiming for the final node
+                if (this.path.length === 1) {
+                    wpX = this.targetX;
+                    wpY = this.targetY;
                 }
-            }
 
-            const target = danger ? state.empId : state.baseHatId;
-            if (target !== state.currentEquipped && isHatOwned(target)) {
-                _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iChangeSkin, target]));
-                state.currentEquipped = target;
-                state.lastSwitch = now;
-            }
-        }
-
-        // 3. Auto Cactus (Instant Storage Withdraw)
-        if (state.autoCactus) {
-            const storageUI = document.querySelector('.storage');
-            const isStorageOpen = storageUI && storageUI.classList.contains('show');
-            
-            if (isStorageOpen && !state.storageWasOpen) {
-                const balanceEl = document.querySelector('.storage-balance');
-                if (balanceEl) {
-                    const getVal = selector => parseInt((balanceEl.querySelector(selector)?.getAttribute('stroke') || '0').replace(/,/g, '')) || 0;
-                    
-                    const food = getVal('.food-count');
-                    const wood = getVal('.wood-count');
-                    const stone = getVal('.stone-count');
-                    const gold = getVal('.gold-count');
-                    
-                    if (food > 0 || wood > 0 || stone > 0 || gold > 0) {
-                        const packet = new DataView(new ArrayBuffer(17));
-                        packet.setUint8(0, _0xca1cdc.wT.iWithdraw); 
-                        packet.setUint32(1, food);
-                        packet.setUint32(5, wood);
-                        packet.setUint32(9, stone);
-                        packet.setUint32(13, gold);
-                        
-                        _0x2d5e24(packet);
-                        
-                        let msg = [];
-                        if (food > 0) msg.push(food + " food");
-                        if (wood > 0) msg.push(wood + " wood");
-                        if (stone > 0) msg.push(stone + " stone");
-                        if (gold > 0) msg.push(gold + " gold");
-                        
-                        _0x336d9a("[Auto-Cactus]: Withdrew " + msg.join(", "));
-                    }
+                let dx = wpX - myX;
+                let dy = wpY - myY;
+                
+                // Arrived
+                if (Math.hypot(this.targetX - myX, this.targetY - myY) < 20) {
+                    this.active = false;
+                    this.resetKeys();
+                    _0x336d9a("Autoplay: Arrived successfully");
+                    return;
                 }
-            }
-            state.storageWasOpen = isStorageOpen;
-        }
-    }
 
-    setInterval(tick, 1000 / 60);
-})();
-// MOD END
+                // Calculate Keyboard inputs based on displacement
+                _0x4cfb62.KeyW = (dy < -20);
+                _0x4cfb62.KeyS = (dy > 20);
+                _0x4cfb62.KeyA = (dx < -20);
+                _0x4cfb62.KeyD = (dx > 20);
+                
+                _0x965f53(Math.atan2(dy, dx)); // Send angle
+                _0x5629b9(); // Send keyboard mock packet
+            } else {
+                // Failsafe: Direct-line approach if pathfinding bugs out
+                let dx = this.targetX - myX;
+                let dy = this.targetY - myY;
+                
+                if (Math.hypot(dx, dy) < 20) {
+                    this.active = false;
+                    this.resetKeys();
+                    _0x336d9a("Autoplay: Arrived");
+                    return;
+                }
+
+                _0x4cfb62.KeyW = (dy < -20);
+                _0x4cfb62.KeyS = (dy > 20);
+                _0x4cfb62.KeyA = (dx < -20);
+                _0x4cfb62.KeyD = (dx > 20);
+                
+                _0x965f53(Math.atan2(dy, dx));
+                _0x5629b9();
+            }
+        }
+    };
+    
+    // Bind bot updates natively to 30 frames a second
+    setInterval(() => autoplayBot.update(), 1000 / 30);
+    // === END AUTOPLAY BOT ===
+    _0x3c0ef4();
   })();
 })();
