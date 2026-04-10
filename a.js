@@ -5821,6 +5821,11 @@
         lastStreamTime: 0,
         streamInterval: 5000, // 5 seconds (standard server gift throttle)
 
+        // AutoEMP variables
+        autoEmpActive: false,
+        isEmpForced: false,
+        prevHatId: -1,
+
         // Resolves the ID of the Bat (best for digging)
         getBatId: function() {
             for (let i = 0; i < _0xca1cdc.ev.length; i++) {
@@ -5850,13 +5855,14 @@
             else if (cmd === "/stop") {
                 this.active = false;
                 this.streamTargetId = null; // Stop streaming too
+                this.autoEmpActive = false; // Stop AutoEMP
                 this.resetKeys();
                 _0x336d9a("Autoplay: Stopped");
             } 
-            else if (cmd === "/leave") {
+            else if (cmd === "/leave" && parts.length >= 2) {
                 let targetId = parseInt(parts[1]);
                 if (!isNaN(targetId)) {
-                    if (this.sendGift(targetId, 1.0)) {
+                    if (this.sendGift(targetId, 1.0)) { // 100% gift
                         _0x336d9a("Gifted mats. Reconnecting...");
                         setTimeout(() => {
                             if (_0x419dc9 && _0x419dc9.url) {
@@ -5866,7 +5872,7 @@
                     }
                 }
             }
-            else if (cmd === "/stream") {
+            else if (cmd === "/stream" && parts.length >= 2) {
                 let targetId = parseInt(parts[1]);
                 if (!isNaN(targetId)) {
                     let members = _0x311e82.children;
@@ -5879,53 +5885,38 @@
                     }
                 }
             }
-            else if (cmd === "/gift") {
+            else if (cmd === "/gift" && parts.length >= 2) {
                 let targetId = parseInt(parts[1]);
-                let percentage = parts.length > 2 ? parseFloat(parts[2]) : 50;
-                if (isNaN(percentage)) percentage = 50;
-                
-                // Clamp between 0 and 100, then convert to decimal
-                percentage = Math.max(0, Math.min(100, percentage)) / 100.0;
+                let pct = parts.length >= 3 ? parseFloat(parts[2]) : 50; // default 50%
+                if (isNaN(pct) || pct <= 0 || pct > 100) pct = 50;
                 
                 if (!isNaN(targetId)) {
-                    if (this.sendGift(targetId, percentage)) {
-                        _0x336d9a(`Gifted ${Math.round(percentage * 100)}% of mats to member ${targetId}`);
-                    } else {
-                        _0x336d9a("Gift failed. Check ID or resources.");
+                    if (this.sendGift(targetId, pct / 100)) {
+                        _0x336d9a(`Gifted ${pct}% of mats to member ${targetId}`);
                     }
                 }
             }
-            else if (cmd === "/loadout") {
-                let type = (parts[1] || "").toLowerCase();
-                let items = [];
-                
-                if (type === "b") {
-                    items = [24, 28]; // Hammer, Bomb
-                } else if (type === "m") {
-                    items = [34, 31, 2, 39, 19, 15, 23, 18, 16, 22, 29, 13]; // Max loadout
-                } else {
-                    _0x336d9a("Invalid loadout type. Use /loadout b or /loadout m");
-                    return;
+            else if (cmd === "/account" && parts.length >= 2) {
+                let accountName = parts.slice(1).join(" ");
+                if (accountName) {
+                    __originalSend(new Uint8Array([_0xca1cdc.wT.iAccountDataReq, ...new TextEncoder().encode(accountName)]));
+                    _0x336d9a("Requested account profile: " + accountName);
                 }
-                
-                // Equip/Upgrade the requested items via iChangeItem (0x3)
-                items.forEach(id => {
-                    __originalSend(new Uint8Array([3, id]));
-                });
-                _0x336d9a("Loadout applied.");
             }
-            else if (cmd === "/account" && parts.length > 1) {
-                let name = parts.slice(1).join(" ");
-                let encodedName = new TextEncoder().encode(name);
-                // Send iAccountDataReq (0x11)
-                __originalSend(new Uint8Array([17, ...encodedName])); 
-                _0x336d9a("Requesting " + name + "'s profile...");
+            else if (cmd === "/autoemp" && parts.length >= 2) {
+                let state = parts[1].toLowerCase() === "true";
+                this.autoEmpActive = state;
+                this.isEmpForced = false;
+                if (state && _0x466240) {
+                    this.prevHatId = _0x466240.skin ? _0x466240.skin.id : -1;
+                }
+                _0x336d9a("AutoEMP: " + (state ? "ON" : "OFF"));
             }
         },
 
-        // Core gifting logic (Used by /leave, /stream, and /gift)
-        sendGift: function(targetId, percent = 1.0) {
-            let members = _0x311e82.children; 
+        // Core gifting logic (accepts multiplier 0.0 - 1.0)
+        sendGift: function(targetId, mult = 1.0) {
+            let members = _0x311e82.children; // Accesses the DOM Clan List
             
             if (members.length <= 1) {
                 _0x336d9a("Action Refused: No one else in the clan.");
@@ -5944,20 +5935,20 @@
             let mask = 0;
             let vals = [];
             
-            let amountFood = Math.floor(_0x5cb651 * percent);
-            let amountWood = Math.floor(_0x475a45 * percent);
-            let amountStone = Math.floor(_0x505bb2 * percent);
-            let amountGold = Math.floor(_0x4e3cab * percent);
+            let f = Math.floor(_0x5cb651 * mult);
+            let w = Math.floor(_0x475a45 * mult);
+            let s = Math.floor(_0x505bb2 * mult);
+            let g = Math.floor(_0x4e3cab * mult);
 
-            if (amountFood > 0) { mask |= 1; vals.push(amountFood); }
-            if (amountWood > 0) { mask |= 2; vals.push(amountWood); }
-            if (amountStone > 0) { mask |= 4; vals.push(amountStone); }
-            if (amountGold > 0) { mask |= 8; vals.push(amountGold); }
+            if (f > 0) { mask |= 1; vals.push(f); } // Food
+            if (w > 0) { mask |= 2; vals.push(w); } // Wood
+            if (s > 0) { mask |= 4; vals.push(s); } // Stone
+            if (g > 0) { mask |= 8; vals.push(g); } // Gold
 
             if (mask > 0) {
                 let buffer = new ArrayBuffer(3 + vals.length * 4);
                 let view = new DataView(buffer);
-                view.setUint8(0, 14); // 14 is iGift
+                view.setUint8(0, _0xca1cdc.wT.iGift); // 14
                 view.setUint8(1, targetId);
                 view.setUint8(2, mask);
                 let offset = 3;
@@ -5977,26 +5968,19 @@
             _0x4cfb62.KeyA = false;
             _0x4cfb62.KeyD = false;
             _0x4cfb62.mouse0 = false;
-            _0x5629b9(); 
+            _0x5629b9(); // Send stop packet
         },
 
-        // Fast & CPU friendly Grid building
+        // Creates a highly-optimized collision map array
         buildGrid: function() {
             let cells = Math.ceil((this.mapSize + (this.gridOffset * 2)) / this.gridSize);
-            
-            // Reuse grid memory to heavily reduce GC lag spikes
-            if (!this.cachedGrid || this.cachedGridCells !== cells) {
-                this.cachedGrid = new Uint8Array(cells * cells);
-                this.cachedGridCells = cells;
-            } else {
-                this.cachedGrid.fill(0); // Quick memory wipe
-            }
-            let grid = this.cachedGrid;
+            let grid = new Uint8Array(cells * cells);
             
             for (let i = 0; i < _0x5a712e.length; i++) {
                 let ent = _0x5a712e[i];
                 if (ent === _0x466240 || ent.isDead) continue;
                 
+                // If it's a solid obstacle
                 if (!ent.isPlayer && !ent.isProj && !ent.isDisplay && !ent.isHole && ent.type !== 6) {
                     let cx = this.worldToGrid(ent.x);
                     let cy = this.worldToGrid(ent.y);
@@ -6006,7 +5990,7 @@
                         for (let dy = -radius; dy <= radius; dy++) {
                             let nx = cx + dx, ny = cy + dy;
                             if (nx >= 0 && nx < cells && ny >= 0 && ny < cells) {
-                                grid[nx + ny * cells] = 1; 
+                                grid[nx + ny * cells] = 1; // Obstacle flag
                             }
                         }
                     }
@@ -6015,7 +5999,7 @@
             return { grid, cells };
         },
 
-        // Fast A* with Min-Heap
+        // Fully optimized Greedy A* Pathfinder to eliminate lag
         aStar: function(startX, startY, goalX, goalY) {
             let { grid, cells } = this.buildGrid();
             
@@ -6025,56 +6009,16 @@
             goalX = Math.max(0, Math.min(cells - 1, goalX));
             goalY = Math.max(0, Math.min(cells - 1, goalY));
 
-            if (startX === goalX && startY === goalY) return [];
-
-            // Lightweight priority queue limits array allocations overhead vs .sort()
-            class MinHeap {
-                constructor() { this.data = []; }
-                push(val) {
-                    this.data.push(val);
-                    this.up(this.data.length - 1);
-                }
-                pop() {
-                    const top = this.data[0];
-                    const bottom = this.data.pop();
-                    if (this.data.length > 0) {
-                        this.data[0] = bottom;
-                        this.down(0);
-                    }
-                    return top;
-                }
-                up(i) {
-                    while (i > 0) {
-                        const p = (i - 1) >> 1;
-                        if (this.data[p].f <= this.data[i].f) break;
-                        const tmp = this.data[i]; this.data[i] = this.data[p]; this.data[p] = tmp;
-                        i = p;
-                    }
-                }
-                down(i) {
-                    const len = this.data.length;
-                    while ((i << 1) + 1 < len) {
-                        let left = (i << 1) + 1;
-                        let right = left + 1;
-                        let min = left;
-                        if (right < len && this.data[right].f < this.data[left].f) min = right;
-                        if (this.data[i].f <= this.data[min].f) break;
-                        const tmp = this.data[i]; this.data[i] = this.data[min]; this.data[min] = tmp;
-                        i = min;
-                    }
-                }
-                get length() { return this.data.length; }
-            }
-
-            let openSet = new MinHeap();
-            openSet.push({x: startX, y: startY, g: 0, f: 0, parent: null});
+            let openSet = [{x: startX, y: startY, g: 0, f: 0, parent: null}];
             let closedSet = new Uint8Array(cells * cells);
             
-            let nodesEvaluated = 0; // Cutoff to avoid locking UI if boxed-in
-
-            while(openSet.length > 0 && nodesEvaluated < 2500) {
-                let current = openSet.pop();
-                nodesEvaluated++;
+            while(openSet.length > 0) {
+                // High performance linear scan (drastically faster than Array.sort)
+                let minIndex = 0;
+                for (let i = 1; i < openSet.length; i++) {
+                    if (openSet[i].f < openSet[minIndex].f) minIndex = i;
+                }
+                let current = openSet.splice(minIndex, 1)[0];
                 
                 if (current.x === goalX && current.y === goalY) {
                     let path = [];
@@ -6090,6 +6034,7 @@
                 if(closedSet[idx]) continue;
                 closedSet[idx] = 1;
                 
+                // Explore 8 directions
                 let neighbors = [
                     {x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0},
                     {x: -1, y: -1}, {x: 1, y: -1}, {x: -1, y: 1}, {x: 1, y: 1}
@@ -6103,7 +6048,7 @@
                     if(grid[nx + ny * cells] === 1) continue; 
                     
                     let gCost = current.g + (n.x !== 0 && n.y !== 0 ? 1.414 : 1);
-                    let hCost = Math.hypot(goalX - nx, goalY - ny);
+                    let hCost = Math.hypot(goalX - nx, goalY - ny) * 1.2; // 1.2 heuristic multiplier for blazing-fast greedy solve
                     let fCost = gCost + hCost;
                     
                     openSet.push({x: nx, y: ny, g: gCost, f: fCost, parent: current});
@@ -6113,26 +6058,73 @@
         },
 
         update: function() {
-            // Handle Streaming 
+            // Logic 1: Handle AutoEMP tracking
+            if (this.autoEmpActive && _0x466240) {
+                let sniperCount = 0;
+                let cannonCount = 0;
+                
+                for (let i = 0; i < _0x5a712e.length; i++) {
+                    let ent = _0x5a712e[i];
+                    if (ent.isCannon && !ent.isDead) {
+                        // 0x258 (600) maps directly to the game's EMP blink range check
+                        if (Math.hypot(_0x466240.x - ent.x, _0x466240.y - ent.y) < 600) {
+                            if (ent.type === 24) sniperCount++; // 24 = Sniper placeBlock ID
+                            else cannonCount++;
+                        }
+                    }
+                }
+                
+                let shouldEmp = sniperCount > 0 || cannonCount > 4;
+                
+                if (shouldEmp && !this.isEmpForced) {
+                    // Save the user's current hat before switching, unless they already had EMP
+                    if (_0x466240.skin && _0x466240.skin.name !== "EMP") {
+                        this.prevHatId = _0x466240.skin.id;
+                    } else if (!_0x466240.skin) {
+                        this.prevHatId = -1;
+                    }
+                    
+                    // Equip EMP hat (Hat ID is 8, server expects HatID + 1 -> 9)
+                    __originalSend(new Uint8Array([_0xca1cdc.wT.iChangeSkin, 9]));
+                    this.isEmpForced = true;
+                } else if (!shouldEmp && this.isEmpForced) {
+                    // Revert back to the old hat (0 represents Unequip)
+                    let equipId = this.prevHatId !== -1 ? this.prevHatId + 1 : 0;
+                    __originalSend(new Uint8Array([_0xca1cdc.wT.iChangeSkin, equipId]));
+                    this.isEmpForced = false;
+                } else if (!this.isEmpForced) {
+                    // Passively track the hat the player changes to normally
+                    if (_0x466240.skin && _0x466240.skin.name !== "EMP") {
+                        this.prevHatId = _0x466240.skin.id;
+                    } else if (!_0x466240.skin) {
+                        this.prevHatId = -1;
+                    }
+                }
+            }
+
+            // Logic 2: Handle Streaming 
             if (this.streamTargetId !== null) {
                 let now = Date.now();
                 if (now - this.lastStreamTime > this.streamInterval) {
+                    // Try to send gift, if it returns false due to invalid target, cancel stream
                     let members = _0x311e82.children;
                     if (this.streamTargetId >= members.length || members.length <= 1) {
                         this.streamTargetId = null;
                         _0x336d9a("Autoplay: Stream ended (target missing)");
                     } else {
-                        this.sendGift(this.streamTargetId, 1.0);
+                        this.sendGift(this.streamTargetId, 1.0); // 100% on intervals
                         this.lastStreamTime = now;
                     }
                 }
             }
 
+            // End logic block here if pathfinding inactive
             if (!this.active || !_0x466240) return;
             
             let myX = _0x466240.x;
             let myY = _0x466240.y;
             
+            // Has arrived check
             if (Math.hypot(this.targetX - myX, this.targetY - myY) <= 50) {
                 this.active = false;
                 this.resetKeys();
@@ -6195,7 +6187,7 @@
             if (isDigging) {
                 let batId = this.getBatId();
                 if (_0x466240.item && _0x466240.item.id !== batId) {
-                    __originalSend(new Uint8Array([3, batId])); // Force Equip Bat
+                    _0xb6b4d7(batId);
                 }
                 _0x4cfb62.mouse0 = true;
                 _0x965f53(angle);
