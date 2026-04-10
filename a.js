@@ -5815,6 +5815,8 @@
         gridSize: 100, // Coarse grid for fast A* processing
         mapSize: _0xca1cdc.KN || 10000, 
         gridOffset: 1000, // Expanded bounds to allow pathfinding outside the map
+        grid: null,
+        gridCells: 0,
         lastChats: {},
 
         // Resolves the ID of the Bat (best for digging)
@@ -5839,21 +5841,21 @@
                 let ent = _0x4cf941[id];
                 if (ent.isPlayer && ent.chat && ent.chat !== this.lastChats[id]) {
                     this.lastChats[id] = ent.chat;
-                    this.handleCommand(ent.chat);
+                    this.handleCommand(ent.chat, false);
                 } else if (!ent.chat) {
                     this.lastChats[id] = null;
                 }
             }
         },
 
-        handleCommand: function(msg) {
+        handleCommand: function(msg, isLocal) {
             if (msg.startsWith("/goto ")) {
                 let parts = msg.split(" ");
                 if (parts.length >= 3) {
                     this.targetX = parseFloat(parts[1]);
                     this.targetY = parseFloat(parts[2]);
                     this.active = true;
-                    _0x336d9a("Autoplay: Navigating to " + this.targetX + ", " + this.targetY); // UI Notification
+                    _0x336d9a("Autoplay: Navigating to " + this.targetX + ", " + this.targetY); 
                 }
             } else if (msg === "/stop") {
                 this.active = false;
@@ -5871,19 +5873,16 @@
             _0x5629b9(); // Send stop packet
         },
 
-        // Creates a collision map array avoiding objects and penalizing water
+        // Creates a fast collision map array avoiding objects
         buildGrid: function() {
             let cells = Math.ceil((this.mapSize + (this.gridOffset * 2)) / this.gridSize);
-            let grid = new Array(cells).fill(0).map(() => new Array(cells).fill(0));
             
-            // Apply Water Penalties (from 4200 to 4800 typically)
-            let riverYStart = this.worldToGrid(_0xca1cdc.UA?.river?.[0] || 4200);
-            let riverYEnd = this.worldToGrid(_0xca1cdc.UA?.river?.[1] || 4800);
-            
-            for (let x = 0; x < cells; x++) {
-                for (let y = Math.max(0, riverYStart); y <= Math.min(cells - 1, riverYEnd); y++) {
-                    grid[x][y] = 5; // Heavy penalty for water to encourage bridges
-                }
+            // Allocate fast 1D array to prevent lag spikes
+            if (!this.grid || this.gridCells !== cells) {
+                this.grid = new Int8Array(cells * cells);
+                this.gridCells = cells;
+            } else {
+                this.grid.fill(0); // Clear previous frame
             }
 
             for (let i = 0; i < _0x5a712e.length; i++) {
@@ -5893,37 +5892,25 @@
                 let cx = this.worldToGrid(ent.x);
                 let cy = this.worldToGrid(ent.y);
                 
-                // If it's a Platform (id 6), clear the water penalty so the bot favors it
-                if (ent.type === 6) {
-                    let radius = Math.ceil((ent.size || 40) / this.gridSize); 
+                // If it's a solid obstacle (ignore platforms, players, projectiles, holes)
+                if (!ent.isPlayer && !ent.isProj && !ent.isDisplay && !ent.isHole && ent.type !== 6) {
+                    let radius = Math.ceil(((ent.size || 40) + 30) / this.gridSize); // Obstacle size + body padding
                     for (let dx = -radius; dx <= radius; dx++) {
                         for (let dy = -radius; dy <= radius; dy++) {
                             let nx = cx + dx, ny = cy + dy;
                             if (nx >= 0 && nx < cells && ny >= 0 && ny < cells) {
-                                grid[nx][ny] = 0; // Make platforms very favorable
-                            }
-                        }
-                    }
-                }
-                // If it's a solid obstacle
-                else if (!ent.isPlayer && !ent.isProj && !ent.isDisplay && !ent.isHole) {
-                    let radius = Math.ceil(((ent.size || 40) + 40) / this.gridSize); // Added padding
-                    for (let dx = -radius; dx <= radius; dx++) {
-                        for (let dy = -radius; dy <= radius; dy++) {
-                            let nx = cx + dx, ny = cy + dy;
-                            if (nx >= 0 && nx < cells && ny >= 0 && ny < cells) {
-                                grid[nx][ny] = -1; // Obstacle flag
+                                this.grid[nx + ny * cells] = 1; // Mark blocked
                             }
                         }
                     }
                 }
             }
-            return { grid, cells };
         },
 
-        // Finds the best path that circumvents obstacles and penalizes water loops
+        // Highly optimized A* Pathfinder
         aStar: function(startX, startY, goalX, goalY) {
-            let { grid, cells } = this.buildGrid();
+            this.buildGrid();
+            let cells = this.gridCells;
             
             // Constrain targets to bounds
             startX = Math.max(0, Math.min(cells - 1, startX));
@@ -5931,13 +5918,21 @@
             goalX = Math.max(0, Math.min(cells - 1, goalX));
             goalY = Math.max(0, Math.min(cells - 1, goalY));
 
+            if (this.grid[startX + startY * cells] === 1) return null; // We are stuck inside a block
+
             let openSet = [{x: startX, y: startY, g: 0, f: 0, parent: null}];
             let closedSet = new Uint8Array(cells * cells);
             
-            while(openSet.length > 0) {
-                // Sort by cheapest heuristic
-                openSet.sort((a, b) => a.f - b.f);
-                let current = openSet.shift();
+            let iters = 0;
+            while(openSet.length > 0 && iters < 1500) { // Hard limit to guarantee no game freezing
+                iters++;
+                
+                // Get lowest cost node
+                let minIdx = 0;
+                for(let i = 1; i < openSet.length; i++) {
+                    if (openSet[i].f < openSet[minIdx].f) minIdx = i;
+                }
+                let current = openSet.splice(minIdx, 1)[0];
                 
                 if (current.x === goalX && current.y === goalY) {
                     let path = [];
@@ -5951,7 +5946,7 @@
                 
                 let idx = current.x + current.y * cells;
                 if(closedSet[idx]) continue;
-                closedSet[idx] = 1; // Mark node calculated
+                closedSet[idx] = 1; // Mark calculated
                 
                 // Explore 8 directions
                 let neighbors = [
@@ -5964,18 +5959,15 @@
                     let ny = current.y + n.y;
                     
                     if(nx < 0 || ny < 0 || nx >= cells || ny >= cells) continue;
+                    if(this.grid[nx + ny * cells] === 1) continue; // Skip obstacles
                     
-                    let weight = grid[nx][ny];
-                    if(weight === -1) continue; // Skip obstacles
-                    
-                    let gCost = current.g + (n.x !== 0 && n.y !== 0 ? 1.414 : 1) + weight; // Adds water penalty natively
+                    let gCost = current.g + (n.x !== 0 && n.y !== 0 ? 1.414 : 1);
                     let hCost = Math.hypot(goalX - nx, goalY - ny);
-                    let fCost = gCost + hCost;
                     
-                    openSet.push({x: nx, y: ny, g: gCost, f: fCost, parent: current});
+                    openSet.push({x: nx, y: ny, g: gCost, f: gCost + hCost, parent: current});
                 }
             }
-            return null; // No path found
+            return null; // No path found / Hit limit
         },
 
         update: function() {
@@ -5993,11 +5985,10 @@
                 return;
             }
 
-            // Recalculate A* Environment every 500ms to adapt to changing environments 
+            // Recalculate Environment occasionally or if stuck
             if (Date.now() - this.lastPathTime > 500) {
                 let startGridX = this.worldToGrid(myX);
                 let startGridY = this.worldToGrid(myY);
-                
                 let goalGridX = this.worldToGrid(this.targetX);
                 let goalGridY = this.worldToGrid(this.targetY);
                 
@@ -6015,15 +6006,13 @@
                 wpY = this.gridToWorld(wp.y);
                 
                 // If close to intermediate waypoint, progress to the next
-                let dist = Math.hypot(wpX - myX, wpY - myY);
-                if (dist < this.gridSize && this.path.length > 1) {
+                if (Math.hypot(wpX - myX, wpY - myY) < this.gridSize && this.path.length > 1) {
                     this.path.shift();
                     wp = this.path[0];
                     wpX = this.gridToWorld(wp.x);
                     wpY = this.gridToWorld(wp.y);
                 }
                 
-                // Absolute destination aiming for the final node
                 if (this.path.length === 1) {
                     wpX = this.targetX;
                     wpY = this.targetY;
@@ -6035,13 +6024,11 @@
             let angle = Math.atan2(dy, dx);
             
             // --- SMART DIGGING LOGIC ---
-            // Determines if the bot is attempting to push through the map boundary line
             let isDigging = false;
             let borderDist = 60; // Trigger distance from map edge
 
             let crossingOutX = (myX < borderDist && dx < 0) || (myX > this.mapSize - borderDist && dx > 0);
             let crossingInX  = (myX < 0 && myX > -borderDist && dx > 0) || (myX > this.mapSize && myX < this.mapSize + borderDist && dx < 0);
-            
             let crossingOutY = (myY < borderDist && dy < 0) || (myY > this.mapSize - borderDist && dy > 0);
             let crossingInY  = (myY < 0 && myY > -borderDist && dy > 0) || (myY > this.mapSize && myY < this.mapSize + borderDist && dy < 0);
             
@@ -6070,6 +6057,20 @@
         }
     };
     
+    // Intercept local chat commands before they are sent to the server
+    const chatInputElem = document.querySelector(".chat-input");
+    if (chatInputElem) {
+        chatInputElem.addEventListener("keydown", function(e) {
+            if (e.keyCode === 13) { // Enter key
+                let msg = chatInputElem.value.trim();
+                if (msg.startsWith("/goto ") || msg === "/stop") {
+                    autoplayBot.handleCommand(msg, true);
+                    chatInputElem.value = ""; // Erase input to cancel normal packet sending
+                }
+            }
+        });
+    }
+
     // Bind bot updates natively to 30 frames a second
     setInterval(() => autoplayBot.update(), 1000 / 30);
     // === END AUTOPLAY BOT ===
