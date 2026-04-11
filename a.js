@@ -5863,15 +5863,15 @@
             } 
             else if (cmd === "/stop") {
                 this.active = false;
-                this.streamTargetId = null; // Stop streaming too
-                this.autoEmpActive = false; // Stop AutoEMP
+                this.streamTargetId = null; 
+                this.autoEmpActive = false; 
                 this.resetKeys();
                 _0x336d9a("Autoplay: Stopped");
             } 
             else if (cmd === "/leave" && parts.length >= 2) {
                 let targetId = parseInt(parts[1]);
                 if (!isNaN(targetId)) {
-                    if (this.sendGift(targetId, 1.0)) { // 100% gift
+                    if (this.sendGift(targetId, 1.0)) { 
                         _0x336d9a("Gifted mats. Reconnecting...");
                         setTimeout(() => {
                             if (_0x419dc9 && _0x419dc9.url) {
@@ -5889,14 +5889,14 @@
                         _0x336d9a("Stream Refused: Invalid clan member.");
                     } else {
                         this.streamTargetId = targetId;
-                        this.lastStreamTime = 0; // Force immediate first gift
+                        this.lastStreamTime = 0; 
                         _0x336d9a("Autoplay: Streaming mats to member " + targetId);
                     }
                 }
             }
             else if (cmd === "/gift" && parts.length >= 2) {
                 let targetId = parseInt(parts[1]);
-                let pct = parts.length >= 3 ? parseFloat(parts[2]) : 50; // default 50%
+                let pct = parts.length >= 3 ? parseFloat(parts[2]) : 50; 
                 if (isNaN(pct) || pct <= 0 || pct > 100) pct = 50;
                 
                 if (!isNaN(targetId)) {
@@ -5940,7 +5940,7 @@
             else if (cmd === "/deleteclan") {
                 let members = _0x311e82.children;
                 if (members) {
-                    // Kick everyone except me (isMe)
+                    // Kick everyone except me
                     for (let i = members.length - 1; i >= 0; i--) {
                         if (!members[i].isMe) {
                             __originalSend(new Uint8Array([_0xca1cdc.wT.iClanKick, i]));
@@ -5953,10 +5953,8 @@
             }
         },
 
-        // Core gifting logic (accepts multiplier 0.0 - 1.0)
         sendGift: function(targetId, mult = 1.0) {
-            let members = _0x311e82.children; // Accesses the DOM Clan List
-            
+            let members = _0x311e82.children; 
             if (members.length <= 1) {
                 _0x336d9a("Action Refused: No one else in the clan.");
                 return false;
@@ -5970,24 +5968,22 @@
                 return false;
             }
 
-            // Build Gift Packet using game's bitmask layout
             let mask = 0;
             let vals = [];
-            
             let f = Math.floor(_0x5cb651 * mult);
             let w = Math.floor(_0x475a45 * mult);
             let s = Math.floor(_0x505bb2 * mult);
             let g = Math.floor(_0x4e3cab * mult);
 
-            if (f > 0) { mask |= 1; vals.push(f); } // Food
-            if (w > 0) { mask |= 2; vals.push(w); } // Wood
-            if (s > 0) { mask |= 4; vals.push(s); } // Stone
-            if (g > 0) { mask |= 8; vals.push(g); } // Gold
+            if (f > 0) { mask |= 1; vals.push(f); } 
+            if (w > 0) { mask |= 2; vals.push(w); } 
+            if (s > 0) { mask |= 4; vals.push(s); } 
+            if (g > 0) { mask |= 8; vals.push(g); } 
 
             if (mask > 0) {
                 let buffer = new ArrayBuffer(3 + vals.length * 4);
                 let view = new DataView(buffer);
-                view.setUint8(0, _0xca1cdc.wT.iGift); // 14
+                view.setUint8(0, _0xca1cdc.wT.iGift); 
                 view.setUint8(1, targetId);
                 view.setUint8(2, mask);
                 let offset = 3;
@@ -6007,29 +6003,24 @@
             _0x4cfb62.KeyA = false;
             _0x4cfb62.KeyD = false;
             _0x4cfb62.mouse0 = false;
-            _0x5629b9(); // Send stop packet
+            _0x5629b9(); 
         },
 
-        // Creates a highly-optimized collision map array
         buildGrid: function() {
             let cells = Math.ceil((this.mapSize + (this.gridOffset * 2)) / this.gridSize);
             let grid = new Uint8Array(cells * cells);
-            
             for (let i = 0; i < _0x5a712e.length; i++) {
                 let ent = _0x5a712e[i];
                 if (ent === _0x466240 || ent.isDead) continue;
-                
-                // If it's a solid obstacle
                 if (!ent.isPlayer && !ent.isProj && !ent.isDisplay && !ent.isHole && ent.type !== 6) {
                     let cx = this.worldToGrid(ent.x);
                     let cy = this.worldToGrid(ent.y);
                     let radius = Math.ceil(((ent.size || 40) + 40) / this.gridSize); 
-                    
                     for (let dx = -radius; dx <= radius; dx++) {
                         for (let dy = -radius; dy <= radius; dy++) {
                             let nx = cx + dx, ny = cy + dy;
                             if (nx >= 0 && nx < cells && ny >= 0 && ny < cells) {
-                                grid[nx + ny * cells] = 1; // Obstacle flag
+                                grid[nx + ny * cells] = 1; 
                             }
                         }
                     }
@@ -6038,27 +6029,20 @@
             return { grid, cells };
         },
 
-        // Fully optimized Greedy A* Pathfinder to eliminate lag
         aStar: function(startX, startY, goalX, goalY) {
             let { grid, cells } = this.buildGrid();
-            
-            // Constrain targets to bounds
             startX = Math.max(0, Math.min(cells - 1, startX));
             startY = Math.max(0, Math.min(cells - 1, startY));
             goalX = Math.max(0, Math.min(cells - 1, goalX));
             goalY = Math.max(0, Math.min(cells - 1, goalY));
-
             let openSet = [{x: startX, y: startY, g: 0, f: 0, parent: null}];
             let closedSet = new Uint8Array(cells * cells);
-            
             while(openSet.length > 0) {
-                // High performance linear scan (drastically faster than Array.sort)
                 let minIndex = 0;
                 for (let i = 1; i < openSet.length; i++) {
                     if (openSet[i].f < openSet[minIndex].f) minIndex = i;
                 }
                 let current = openSet.splice(minIndex, 1)[0];
-                
                 if (current.x === goalX && current.y === goalY) {
                     let path = [];
                     let curr = current;
@@ -6068,28 +6052,18 @@
                     }
                     return path.reverse();
                 }
-                
                 let idx = current.x + current.y * cells;
                 if(closedSet[idx]) continue;
                 closedSet[idx] = 1;
-                
-                // Explore 8 directions
-                let neighbors = [
-                    {x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0},
-                    {x: -1, y: -1}, {x: 1, y: -1}, {x: -1, y: 1}, {x: 1, y: 1}
-                ];
-                
+                let neighbors = [{x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0}, {x: -1, y: -1}, {x: 1, y: -1}, {x: -1, y: 1}, {x: 1, y: 1}];
                 for(let n of neighbors) {
                     let nx = current.x + n.x;
                     let ny = current.y + n.y;
-                    
                     if(nx < 0 || ny < 0 || nx >= cells || ny >= cells) continue;
                     if(grid[nx + ny * cells] === 1) continue; 
-                    
                     let gCost = current.g + (n.x !== 0 && n.y !== 0 ? 1.414 : 1);
-                    let hCost = Math.hypot(goalX - nx, goalY - ny) * 1.2; // 1.2 heuristic multiplier for blazing-fast greedy solve
+                    let hCost = Math.hypot(goalX - nx, goalY - ny) * 1.2; 
                     let fCost = gCost + hCost;
-                    
                     openSet.push({x: nx, y: ny, g: gCost, f: fCost, parent: current});
                 }
             }
@@ -6097,73 +6071,49 @@
         },
 
         update: function() {
-            // Logic 1: Handle AutoEMP tracking
             if (this.autoEmpActive && _0x466240) {
-                let sniperCount = 0;
-                let cannonCount = 0;
-                
+                let sniperCount = 0, cannonCount = 0;
                 for (let i = 0; i < _0x5a712e.length; i++) {
                     let ent = _0x5a712e[i];
                     if (ent.isCannon && !ent.isDead) {
-                        // 0x258 (600) maps directly to the game's EMP blink range check
                         if (Math.hypot(_0x466240.x - ent.x, _0x466240.y - ent.y) < 600) {
-                            if (ent.type === 24) sniperCount++; // 24 = Sniper placeBlock ID
+                            if (ent.type === 24) sniperCount++;
                             else cannonCount++;
                         }
                     }
                 }
-                
                 let shouldEmp = sniperCount > 0 || cannonCount > 4;
-                
                 if (shouldEmp && !this.isEmpForced) {
-                    // Save the user's current hat before switching, unless they already had EMP
-                    if (_0x466240.skin && _0x466240.skin.name !== "EMP") {
-                        this.prevHatId = _0x466240.skin.id;
-                    } else if (!_0x466240.skin) {
-                        this.prevHatId = -1;
-                    }
-                    
-                    // Equip EMP hat (Hat ID is 8, server expects HatID + 1 -> 9)
+                    if (_0x466240.skin && _0x466240.skin.name !== "EMP") this.prevHatId = _0x466240.skin.id;
+                    else if (!_0x466240.skin) this.prevHatId = -1;
                     __originalSend(new Uint8Array([_0xca1cdc.wT.iChangeSkin, 9]));
                     this.isEmpForced = true;
                 } else if (!shouldEmp && this.isEmpForced) {
-                    // Revert back to the old hat (0 represents Unequip)
                     let equipId = this.prevHatId !== -1 ? this.prevHatId + 1 : 0;
                     __originalSend(new Uint8Array([_0xca1cdc.wT.iChangeSkin, equipId]));
                     this.isEmpForced = false;
                 } else if (!this.isEmpForced) {
-                    // Passively track the hat the player changes to normally
-                    if (_0x466240.skin && _0x466240.skin.name !== "EMP") {
-                        this.prevHatId = _0x466240.skin.id;
-                    } else if (!_0x466240.skin) {
-                        this.prevHatId = -1;
-                    }
+                    if (_0x466240.skin && _0x466240.skin.name !== "EMP") this.prevHatId = _0x466240.skin.id;
+                    else if (!_0x466240.skin) this.prevHatId = -1;
                 }
             }
 
-            // Logic 2: Handle Streaming 
             if (this.streamTargetId !== null) {
                 let now = Date.now();
                 if (now - this.lastStreamTime > this.streamInterval) {
-                    // Try to send gift, if it returns false due to invalid target, cancel stream
                     let members = _0x311e82.children;
                     if (this.streamTargetId >= members.length || members.length <= 1) {
                         this.streamTargetId = null;
                         _0x336d9a("Autoplay: Stream ended (target missing)");
                     } else {
-                        this.sendGift(this.streamTargetId, 1.0); // 100% on intervals
+                        this.sendGift(this.streamTargetId, 1.0); 
                         this.lastStreamTime = now;
                     }
                 }
             }
 
-            // Logic 3: Handle AutoCactus (Auto Storage Withdrawal)
             if (this.autoCactusActive && _0x5c84b0 && _0x5c84b0.classList.contains("show")) {
-                let f = _0x53bf5e[0] || 0;
-                let w = _0x53bf5e[1] || 0;
-                let s = _0x53bf5e[2] || 0;
-                let g = _0x53bf5e[3] || 0;
-
+                let f = _0x53bf5e[0] || 0, w = _0x53bf5e[1] || 0, s = _0x53bf5e[2] || 0, g = _0x53bf5e[3] || 0;
                 if (f > 0 || w > 0 || s > 0 || g > 0) {
                     let buffer = new ArrayBuffer(17);
                     let view = new DataView(buffer);
@@ -6174,133 +6124,67 @@
                     view.setUint32(offset, s); offset += 4;
                     view.setUint32(offset, g); offset += 4;
                     __originalSend(new Uint8Array(buffer));
-
                     _0x336d9a(`AutoCactus: Withdrew ${f}F, ${w}W, ${s}S, ${g}G`);
-                    
-                    // Local reset to prevent multi-looping before server responds
                     _0x53bf5e[0] = 0; _0x53bf5e[1] = 0; _0x53bf5e[2] = 0; _0x53bf5e[3] = 0;
-
-                    // Close the storage menu via DOM click simulation
                     if (_0x52e53d) _0x52e53d.click(_0x301307);
                 }
             }
 
-            // End logic block here if pathfinding inactive
             if (!this.active || !_0x466240) return;
-            
-            let myX = _0x466240.x;
-            let myY = _0x466240.y;
-            
-            // Has arrived check
+            let myX = _0x466240.x, myY = _0x466240.y;
             if (Math.hypot(this.targetX - myX, this.targetY - myY) <= 50) {
                 this.active = false;
                 this.resetKeys();
                 _0x336d9a("Autoplay: Arrived successfully");
                 return;
             }
-
-            // Recalculate A* Environment every 500ms
             if (Date.now() - this.lastPathTime > 500) {
-                let startGridX = this.worldToGrid(myX);
-                let startGridY = this.worldToGrid(myY);
-                let goalGridX = this.worldToGrid(this.targetX);
-                let goalGridY = this.worldToGrid(this.targetY);
-                
-                this.path = this.aStar(startGridX, startGridY, goalGridX, goalGridY);
+                this.path = this.aStar(this.worldToGrid(myX), this.worldToGrid(myY), this.worldToGrid(this.targetX), this.worldToGrid(this.targetY));
                 this.lastPathTime = Date.now();
             }
-
-            let wpX = this.targetX;
-            let wpY = this.targetY;
-
-            // Path Following Execution
+            let wpX = this.targetX, wpY = this.targetY;
             if (this.path && this.path.length > 0) {
                 let wp = this.path[0];
-                wpX = this.gridToWorld(wp.x);
-                wpY = this.gridToWorld(wp.y);
-                
-                let dist = Math.hypot(wpX - myX, wpY - myY);
-                if (dist < this.gridSize && this.path.length > 1) {
+                wpX = this.gridToWorld(wp.x); wpY = this.gridToWorld(wp.y);
+                if (Math.hypot(wpX - myX, wpY - myY) < this.gridSize && this.path.length > 1) {
                     this.path.shift();
-                    wp = this.path[0];
-                    wpX = this.gridToWorld(wp.x);
-                    wpY = this.gridToWorld(wp.y);
+                    wp = this.path[0]; wpX = this.gridToWorld(wp.x); wpY = this.gridToWorld(wp.y);
                 }
-                
-                if (this.path.length === 1) {
-                    wpX = this.targetX;
-                    wpY = this.targetY;
-                }
+                if (this.path.length === 1) { wpX = this.targetX; wpY = this.targetY; }
             }
-
-            let dx = wpX - myX;
-            let dy = wpY - myY;
-            let angle = Math.atan2(dy, dx);
-            
-            // --- SMART DIGGING LOGIC ---
-            let isDigging = false;
-            let borderDist = 60;
-
-            let crossingOutX = (myX < borderDist && dx < 0) || (myX > this.mapSize - borderDist && dx > 0);
-            let crossingInX  = (myX < 0 && myX > -borderDist && dx > 0) || (myX > this.mapSize && myX < this.mapSize + borderDist && dx < 0);
-            
-            let crossingOutY = (myY < borderDist && dy < 0) || (myY > this.mapSize - borderDist && dy > 0);
-            let crossingInY  = (myY < 0 && myY > -borderDist && dy > 0) || (myY > this.mapSize && myY < this.mapSize + borderDist && dy < 0);
-            
-            if (crossingOutX || crossingInX || crossingOutY || crossingInY) {
-                isDigging = true;
-            }
-
+            let dx = wpX - myX, dy = wpY - myY, angle = Math.atan2(dy, dx);
+            let isDigging = false, borderDist = 60;
+            if (((myX < borderDist && dx < 0) || (myX > this.mapSize - borderDist && dx > 0)) || ((myX < 0 && myX > -borderDist && dx > 0) || (myX > this.mapSize && myX < this.mapSize + borderDist && dx < 0)) || ((myY < borderDist && dy < 0) || (myY > this.mapSize - borderDist && dy > 0)) || ((myY < 0 && myY > -borderDist && dy > 0) || (myY > this.mapSize && myY < this.mapSize + borderDist && dy < 0))) isDigging = true;
             if (isDigging) {
                 let batId = this.getBatId();
-                if (_0x466240.item && _0x466240.item.id !== batId) {
-                    _0xb6b4d7(batId);
-                }
-                _0x4cfb62.mouse0 = true;
-                _0x965f53(angle);
-            } else {
-                _0x4cfb62.mouse0 = false;
-            }
-
-            _0x4cfb62.KeyW = (dy < -20);
-            _0x4cfb62.KeyS = (dy > 20);
-            _0x4cfb62.KeyA = (dx < -20);
-            _0x4cfb62.KeyD = (dx > 20);
-            
+                if (_0x466240.item && _0x466240.item.id !== batId) _0xb6b4d7(batId);
+                _0x4cfb62.mouse0 = true; _0x965f53(angle);
+            } else _0x4cfb62.mouse0 = false;
+            _0x4cfb62.KeyW = (dy < -20); _0x4cfb62.KeyS = (dy > 20); _0x4cfb62.KeyA = (dx < -20); _0x4cfb62.KeyD = (dx > 20);
             _0x5629b9();
         }
     };
 
-    // Inject "Run Command" Button into UI
-    let loginBtn = document.querySelector(".login-btn");
-    if (loginBtn && !document.getElementById("run-cmd-btn")) {
-        let runCmdBtn = document.createElement("div");
-        runCmdBtn.id = "run-cmd-btn";
-        runCmdBtn.className = "btn";
-        runCmdBtn.style.marginTop = "10px";
-        runCmdBtn.style.backgroundColor = "#ffc107";
-        runCmdBtn.innerHTML = '<span stroke="Run Command"></span>';
-        runCmdBtn.onclick = function() {
-            let cmd = prompt("Enter command (e.g. /autoemp true, /reqmats):");
+    // Hotkey listener for Command Prompt (Alt + K)
+    document.addEventListener("keydown", (e) => {
+        if (e.altKey && e.code === "KeyK") {
+            e.preventDefault();
+            let cmd = prompt("Enter bot command (e.g. /autoemp true, /reqmats, /kick 0):");
             if (cmd) autoplayBot.handleCommand(cmd);
-        };
-        loginBtn.parentNode.insertBefore(runCmdBtn, loginBtn.nextSibling);
-    }
+        }
+    });
 
-    // Intercept outgoing Local Chat messages seamlessly
     const __originalSend = _0x2d5e24;
     _0x2d5e24 = function(packet) {
         if (packet[0] === _0xca1cdc.wT.iChat) {
             let msg = new TextDecoder().decode(packet.slice(1));
             if (msg.startsWith("/")) {
                 autoplayBot.handleCommand(msg);
-                return; // Stop the command from broadcasting to the server
+                return; 
             }
         }
         __originalSend.apply(this, arguments);
     };
-    
-    // Bind bot updates natively to 60 frames a second (matching tickrate)
     setInterval(() => autoplayBot.update(), 1000 / 60);
 // === END AUTOPLAY BOT ===
     _0x3c0ef4();
