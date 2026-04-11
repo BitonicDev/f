@@ -6187,27 +6187,22 @@
     };
     setInterval(() => autoplayBot.update(), 1000 / 60);
 // === END AUTOPLAY BOT ===
-    _0x3c0ef4();
-  })();
-// === ACCOUNT CHECKER UTILITY ===
+    // === ACCOUNT DATA PROXY ===
 (() => {
-    const pendingRequests = new Map();
+    const checkQueue = new Map();
 
-    // 1. Hook the message handler to intercept account data
-    const originalOnMessage = _0x419dc9 ? _0x419dc9.onmessage : null;
-    
-    // This function logic mimics the internal 'accountData' case 
-    // but extracts data for our tool instead of updating the UI.
-    const handleIntercept = (event) => {
+    // Hook into the message handler to silently capture account data
+    const originalOnMsg = _0x419dc9.onmessage;
+    _0x419dc9.onmessage = function(event) {
         const data = new DataView(event.data);
         let offset = 0;
         const msgType = data.getUint8(offset++);
 
-        // Check if message is 'accountData' (0x12)
+        // Check if message is accountData (0x12)
         if (msgType === _0xca1cdc.wT.accountData) {
             const isMe = data.getUint8(offset++);
             
-            // Helper to read strings (mimics internal _0x5c9f7f)
+            // Internal string reader helper
             const readStr = () => {
                 const len = data.getUint8(offset++);
                 const arr = new Uint8Array(len);
@@ -6218,7 +6213,8 @@
             const rawName = readStr();
             const cleanName = _0x28f576(rawName);
 
-            if (pendingRequests.has(cleanName)) {
+            // If this is one we are looking for, process it silently
+            if (checkQueue.has(cleanName)) {
                 const stats = _0xca1cdc.OU();
                 for (let key in stats) {
                     let val;
@@ -6231,86 +6227,61 @@
                     }
                     stats[key] = val;
                 }
-                
-                // Use the game's internal level calculation function
                 const level = Math.floor(_0xca1cdc.Wv(stats));
-                
-                // Resolve the promise for this specific account
-                const resolver = pendingRequests.get(cleanName);
-                resolver({ name: cleanName, level: level, stats: stats });
-                pendingRequests.delete(cleanName);
+                checkQueue.get(cleanName)(level); // Resolve the promise
+                checkQueue.delete(cleanName);
+                return; // Prevent the game's UI from showing this profile
             }
         } 
         // Handle Account Not Found (0x17)
         else if (msgType === _0xca1cdc.wT.accountNotFound) {
-            // Since the server doesn't send the name back on 'notFound', 
-            // we resolve the oldest pending request as null.
-            const firstKey = pendingRequests.keys().next().value;
+            const firstKey = checkQueue.keys().next().value;
             if (firstKey) {
-                pendingRequests.get(firstKey)(null);
-                pendingRequests.delete(firstKey);
+                checkQueue.get(firstKey)("Not Found");
+                checkQueue.delete(firstKey);
             }
         }
+
+        if (originalOnMsg) originalOnMsg.apply(this, arguments);
     };
 
-    // Periodically ensure our hook is active on the current socket
-    setInterval(() => {
-        if (_0x419dc9 && _0x419dc9.onmessage !== handleIntercept) {
-            const oldOnMsg = _0x419dc9.onmessage;
-            _0x419dc9.onmessage = function(e) {
-                handleIntercept(e);
-                if (oldOnMsg) oldOnMsg.apply(this, arguments);
-            };
-        }
-    }, 1000);
-
     /**
-     * checkAccs
-     * @param {string[]} accList - Array of usernames to check
-     * @returns {Promise<Object[]>} - Resolves with array of {name, level}
+     * checkAccs: Exposed function to check levels in bulk
+     * Usage: await checkAccs(["User1", "User2"])
      */
-    window.checkAccs = async function(accList) {
-        if (!_0x419dc9 || _0x419dc9.readyState !== WebSocket.OPEN) {
-            console.error("Socket not connected");
-            return [];
-        }
+    window.checkAccs = async function(names) {
+        if (!_0x419dc9 || _0x419dc9.readyState !== 1) return console.error("Not connected to server.");
+        
+        console.log(`Checking ${names.length} accounts...`);
+        const results = {};
 
-        const results = [];
-        _0x336d9a(`Checking ${accList.length} accounts...`);
-
-        for (const name of accList) {
+        for (const name of names) {
             const cleanName = _0x28f576(name);
             
-            const promise = new Promise((resolve) => {
-                pendingRequests.set(cleanName, resolve);
+            const promise = new Promise(resolve => {
+                checkQueue.set(cleanName, resolve);
             });
 
-            // Send Request (iAccountDataReq = 0x11)
-            const packet = new Uint8Array([_0xca1cdc.wT.iAccountDataReq, ...new TextEncoder().encode(name)]);
-            _0x2d5e24(packet);
+            // Send iAccountDataReq (0x11)
+            _0x2d5e24(new Uint8Array([_0xca1cdc.wT.iAccountDataReq, ...new TextEncoder().encode(name)]));
 
-            // Timeout after 3 seconds if no response
-            const result = await Promise.race([
+            // Wait for response or 2-second timeout
+            results[name] = await Promise.race([
                 promise,
-                new Promise(res => setTimeout(() => res("timeout"), 3000))
+                new Promise(res => setTimeout(() => res("Timeout"), 2000))
             ]);
 
-            if (result === "timeout") {
-                pendingRequests.delete(cleanName);
-                results.push({ name: cleanName, level: "N/A (Timeout)" });
-            } else if (result === null) {
-                results.push({ name: cleanName, level: "Not Found" });
-            } else {
-                results.push({ name: result.name, level: result.level });
-            }
+            // Clean up if timeout
+            if (results[name] === "Timeout") checkQueue.delete(cleanName);
 
-            // Small delay to prevent rate-limiting/spam kicks
+            // Prevent spam kick
             await new Promise(res => setTimeout(res, 4));
         }
 
         console.table(results);
-        _0x336d9a("Account check complete. See console.");
         return results;
     };
 })();
+    _0x3c0ef4();
+  })();
 })();
