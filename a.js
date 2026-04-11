@@ -6189,4 +6189,128 @@
 // === END AUTOPLAY BOT ===
     _0x3c0ef4();
   })();
+// === ACCOUNT CHECKER UTILITY ===
+(() => {
+    const pendingRequests = new Map();
+
+    // 1. Hook the message handler to intercept account data
+    const originalOnMessage = _0x419dc9 ? _0x419dc9.onmessage : null;
+    
+    // This function logic mimics the internal 'accountData' case 
+    // but extracts data for our tool instead of updating the UI.
+    const handleIntercept = (event) => {
+        const data = new DataView(event.data);
+        let offset = 0;
+        const msgType = data.getUint8(offset++);
+
+        // Check if message is 'accountData' (0x12)
+        if (msgType === _0xca1cdc.wT.accountData) {
+            const isMe = data.getUint8(offset++);
+            
+            // Helper to read strings (mimics internal _0x5c9f7f)
+            const readStr = () => {
+                const len = data.getUint8(offset++);
+                const arr = new Uint8Array(len);
+                for (let i = 0; i < len; i++) arr[i] = data.getUint8(offset++);
+                return new TextDecoder().decode(arr);
+            };
+
+            const rawName = readStr();
+            const cleanName = _0x28f576(rawName);
+
+            if (pendingRequests.has(cleanName)) {
+                const stats = _0xca1cdc.OU();
+                for (let key in stats) {
+                    let val;
+                    if (_0xca1cdc.nf(key)) {
+                        val = Number(data.getBigUint64(offset));
+                        offset += 8;
+                    } else {
+                        val = data.getUint32(offset);
+                        offset += 4;
+                    }
+                    stats[key] = val;
+                }
+                
+                // Use the game's internal level calculation function
+                const level = Math.floor(_0xca1cdc.Wv(stats));
+                
+                // Resolve the promise for this specific account
+                const resolver = pendingRequests.get(cleanName);
+                resolver({ name: cleanName, level: level, stats: stats });
+                pendingRequests.delete(cleanName);
+            }
+        } 
+        // Handle Account Not Found (0x17)
+        else if (msgType === _0xca1cdc.wT.accountNotFound) {
+            // Since the server doesn't send the name back on 'notFound', 
+            // we resolve the oldest pending request as null.
+            const firstKey = pendingRequests.keys().next().value;
+            if (firstKey) {
+                pendingRequests.get(firstKey)(null);
+                pendingRequests.delete(firstKey);
+            }
+        }
+    };
+
+    // Periodically ensure our hook is active on the current socket
+    setInterval(() => {
+        if (_0x419dc9 && _0x419dc9.onmessage !== handleIntercept) {
+            const oldOnMsg = _0x419dc9.onmessage;
+            _0x419dc9.onmessage = function(e) {
+                handleIntercept(e);
+                if (oldOnMsg) oldOnMsg.apply(this, arguments);
+            };
+        }
+    }, 1000);
+
+    /**
+     * checkAccs
+     * @param {string[]} accList - Array of usernames to check
+     * @returns {Promise<Object[]>} - Resolves with array of {name, level}
+     */
+    window.checkAccs = async function(accList) {
+        if (!_0x419dc9 || _0x419dc9.readyState !== WebSocket.OPEN) {
+            console.error("Socket not connected");
+            return [];
+        }
+
+        const results = [];
+        _0x336d9a(`Checking ${accList.length} accounts...`);
+
+        for (const name of accList) {
+            const cleanName = _0x28f576(name);
+            
+            const promise = new Promise((resolve) => {
+                pendingRequests.set(cleanName, resolve);
+            });
+
+            // Send Request (iAccountDataReq = 0x11)
+            const packet = new Uint8Array([_0xca1cdc.wT.iAccountDataReq, ...new TextEncoder().encode(name)]);
+            _0x2d5e24(packet);
+
+            // Timeout after 3 seconds if no response
+            const result = await Promise.race([
+                promise,
+                new Promise(res => setTimeout(() => res("timeout"), 3000))
+            ]);
+
+            if (result === "timeout") {
+                pendingRequests.delete(cleanName);
+                results.push({ name: cleanName, level: "N/A (Timeout)" });
+            } else if (result === null) {
+                results.push({ name: cleanName, level: "Not Found" });
+            } else {
+                results.push({ name: result.name, level: result.level });
+            }
+
+            // Small delay to prevent rate-limiting/spam kicks
+            await new Promise(res => setTimeout(res, 4));
+        }
+
+        console.table(results);
+        _0x336d9a("Account check complete. See console.");
+        return results;
+    };
+})();
 })();
