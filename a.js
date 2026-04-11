@@ -5846,12 +5846,14 @@
         },
 
         handleCommand: function(msg) {
+            if (!msg) return;
             let parts = msg.trim().split(" ");
             let cmd = parts[0].toLowerCase();
 
             if (cmd === "/help") {
                 _0x336d9a("Commands: /goto [x] [y] | /stop | /leave [id] | /account [user]");
                 setTimeout(() => _0x336d9a("/stream [id] | /gift [id] [pct] | /autoemp [bool] | /autocactus [bool]"), 200);
+                setTimeout(() => _0x336d9a("/reqmats | /kick [id] | /deleteclan"), 400);
             }
             else if (cmd === "/goto" && parts.length >= 3) {
                 this.targetX = parseFloat(parts[1]);
@@ -5923,6 +5925,31 @@
                 let state = parts[1].toLowerCase() === "true";
                 this.autoCactusActive = state;
                 _0x336d9a("AutoCactus: " + (state ? "ON" : "OFF"));
+            }
+            else if (cmd === "/reqmats") {
+                __originalSend(new Uint8Array([_0xca1cdc.wT.iReqMats]));
+                _0x336d9a("Requested materials.");
+            }
+            else if (cmd === "/kick" && parts.length >= 2) {
+                let targetId = parseInt(parts[1]);
+                if (!isNaN(targetId)) {
+                    __originalSend(new Uint8Array([_0xca1cdc.wT.iClanKick, targetId]));
+                    _0x336d9a("Sent kick packet for member " + targetId);
+                }
+            }
+            else if (cmd === "/deleteclan") {
+                let members = _0x311e82.children;
+                if (members) {
+                    // Kick everyone except me (isMe)
+                    for (let i = members.length - 1; i >= 0; i--) {
+                        if (!members[i].isMe) {
+                            __originalSend(new Uint8Array([_0xca1cdc.wT.iClanKick, i]));
+                        }
+                    }
+                }
+                // Leave clan
+                __originalSend(new Uint8Array([_0xca1cdc.wT.iClanLeave]));
+                _0x336d9a("Deleted clan (kicked all and left).");
             }
         },
 
@@ -6243,6 +6270,22 @@
             _0x5629b9();
         }
     };
+
+    // Inject "Run Command" Button into UI
+    let loginBtn = document.querySelector(".login-btn");
+    if (loginBtn && !document.getElementById("run-cmd-btn")) {
+        let runCmdBtn = document.createElement("div");
+        runCmdBtn.id = "run-cmd-btn";
+        runCmdBtn.className = "btn";
+        runCmdBtn.style.marginTop = "10px";
+        runCmdBtn.style.backgroundColor = "#ffc107";
+        runCmdBtn.innerHTML = '<span stroke="Run Command"></span>';
+        runCmdBtn.onclick = function() {
+            let cmd = prompt("Enter command (e.g. /autoemp true, /reqmats):");
+            if (cmd) autoplayBot.handleCommand(cmd);
+        };
+        loginBtn.parentNode.insertBefore(runCmdBtn, loginBtn.nextSibling);
+    }
 
     // Intercept outgoing Local Chat messages seamlessly
     const __originalSend = _0x2d5e24;
