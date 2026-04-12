@@ -5382,7 +5382,7 @@
       _0x4e1609 = Date.now();
       _0x588741 = _0x4e1609 - _0x24cd3b;
       _0x24cd3b = _0x4e1609;
-      if (_0xe25b7c && window.lastPacketTime && (_0x4e1609 - window.lastPacketTime > 2000)) {
+if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastPacketTime > 2000)) {
           _0x336d9a("Connection frozen for >2 seconds. Reconnecting");
           window.lastPacketTime = _0x4e1609;
           if (_0x419dc9 && _0x419dc9.url) {
