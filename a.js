@@ -2799,6 +2799,7 @@
     function _0x1e84d0(_0x4b9305) {
       const _0xa8c94c = new DataView(_0x4b9305.data);
       let _0x457ea4 = 0x0;
+      window.lastPacketTime = Date.now();
       function _0x5c9f7f() {
         const _0x1a1e09 = _0xa8c94c.getUint8(_0x457ea4++);
         const _0x4a4bae = new Uint8Array(_0x1a1e09);
@@ -5381,6 +5382,13 @@
       _0x4e1609 = Date.now();
       _0x588741 = _0x4e1609 - _0x24cd3b;
       _0x24cd3b = _0x4e1609;
+      if (_0xe25b7c && window.lastPacketTime && (_0x4e1609 - window.lastPacketTime > 2000)) {
+          _0x336d9a("Connection frozen for >2 seconds. Reconnecting");
+          window.lastPacketTime = _0x4e1609;
+          if (_0x419dc9 && _0x419dc9.url) {
+              window.connect(_0x419dc9.url);
+          }
+      }
       _0x33fe26();
       if ('' === _0x2fc9ad.style.display && _0x4e1609 - _0x41d115 > 0x2710) {
         _0x438014();
