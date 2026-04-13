@@ -5837,6 +5837,11 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
         // AutoCactus variables
         autoCactusActive: false,
 
+        // New feature variables
+        autoChatActive: false,
+        autoEatActive: false,
+        zoomVal: 1,
+
         // Resolves the ID of the Bat (best for digging)
         getBatId: function() {
             for (let i = 0; i < _0xca1cdc.ev.length; i++) {
@@ -5862,6 +5867,7 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 _0x336d9a("Commands: /goto [x] [y] | /stop | /leave [id] | /account [user]");
                 setTimeout(() => _0x336d9a("/stream [id] | /gift [id] [pct] | /autoemp [bool] | /autocactus [bool]"), 200);
                 setTimeout(() => _0x336d9a("/reqmats | /kick [id] | /deleteclan"), 400);
+                setTimeout(() => _0x336d9a("/autochat [bool] | /autoeat [bool] | /zoom [val]"), 600);
             }
             else if (cmd === "/goto" && parts.length >= 3) {
                 this.targetX = parseFloat(parts[1]);
@@ -5872,7 +5878,9 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             else if (cmd === "/stop") {
                 this.active = false;
                 this.streamTargetId = null; 
-                this.autoEmpActive = false; 
+                this.autoEmpActive = false;
+                this.autoChatActive = false;
+                this.autoEatActive = false;
                 this.resetKeys();
                 _0x336d9a("Autoplay: Stopped");
             } 
@@ -5933,6 +5941,23 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 let state = parts[1].toLowerCase() === "true";
                 this.autoCactusActive = state;
                 _0x336d9a("AutoCactus: " + (state ? "ON" : "OFF"));
+            }
+            else if (cmd === "/autochat" && parts.length >= 2) {
+                let state = parts[1].toLowerCase() === "true";
+                this.autoChatActive = state;
+                _0x336d9a("AutoChat: " + (state ? "ON" : "OFF"));
+            }
+            else if (cmd === "/autoeat" && parts.length >= 2) {
+                let state = parts[1].toLowerCase() === "true";
+                this.autoEatActive = state;
+                _0x336d9a("AutoEat: " + (state ? "ON" : "OFF"));
+            }
+            else if (cmd === "/zoom" && parts.length >= 2) {
+                let val = parseFloat(parts[1]);
+                if (!isNaN(val) && val > 0) {
+                    this.zoomVal = val;
+                    _0x336d9a("Zoom set to: " + val + "x");
+                }
             }
             else if (cmd === "/reqmats") {
                 __originalSend(new Uint8Array([_0xca1cdc.wT.iReqMats]));
@@ -6011,6 +6036,7 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             _0x4cfb62.KeyA = false;
             _0x4cfb62.KeyD = false;
             _0x4cfb62.mouse0 = false;
+            _0x4cfb62.ShiftLeft = false;
             _0x5629b9(); 
         },
 
@@ -6079,6 +6105,36 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
         },
 
         update: function() {
+            let now = Date.now();
+
+            // Zoom hook intercept
+            if (_0x466240) {
+                if (!_0x466240.skin) {
+                    // Create a mock skin object for the engine to read if currently none
+                    _0x466240.skin = { name: "mock_zoom", id: -1, viewScale: this.zoomVal };
+                } else {
+                    // Backup original scale logic and multiply it by our modifier
+                    if (typeof _0x466240.skin.origViewScale === "undefined") {
+                        _0x466240.skin.origViewScale = _0x466240.skin.viewScale || 1;
+                    }
+                    _0x466240.skin.viewScale = _0x466240.skin.origViewScale * this.zoomVal;
+                }
+            }
+
+            // AutoChat
+            if (this.autoChatActive) {
+                let hex = Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+                __originalSend(new Uint8Array([_0xca1cdc.wT.iChat, ...new TextEncoder().encode(hex)]));
+            }
+
+            // AutoEat
+            if (this.autoEatActive) {
+                _0x4cfb62.ShiftLeft = true;
+                _0x4cfb62.mouse0 = true;
+                _0x5629b9(); 
+                __originalSend(new Uint8Array([_0xca1cdc.wT.iChangeItem, 4])); // Force equip Apple (ID 4)
+            }
+
             if (this.autoEmpActive && _0x466240) {
                 let sniperCount = 0, cannonCount = 0;
                 for (let i = 0; i < _0x5a712e.length; i++) {
@@ -6107,7 +6163,6 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             }
 
             if (this.streamTargetId !== null) {
-                let now = Date.now();
                 if (now - this.lastStreamTime > this.streamInterval) {
                     let members = _0x311e82.children;
                     if (this.streamTargetId >= members.length || members.length <= 1) {
@@ -6146,9 +6201,9 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 _0x336d9a("Autoplay: Arrived successfully");
                 return;
             }
-            if (Date.now() - this.lastPathTime > 500) {
+            if (now - this.lastPathTime > 500) {
                 this.path = this.aStar(this.worldToGrid(myX), this.worldToGrid(myY), this.worldToGrid(this.targetX), this.worldToGrid(this.targetY));
-                this.lastPathTime = Date.now();
+                this.lastPathTime = now;
             }
             let wpX = this.targetX, wpY = this.targetY;
             if (this.path && this.path.length > 0) {
@@ -6177,7 +6232,7 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
     document.addEventListener("keydown", (e) => {
         if (e.altKey && e.code === "KeyK") {
             e.preventDefault();
-            let cmd = prompt("Enter bot command (e.g. /autoemp true, /reqmats, /kick 0):");
+            let cmd = prompt("Enter bot command (e.g. /zoom 1.5, /autochat true, /autoeat true):");
             if (cmd) autoplayBot.handleCommand(cmd);
         }
     });
