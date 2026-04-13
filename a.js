@@ -5842,6 +5842,13 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
         autoEatActive: false,
         zoomVal: 1,
 
+        // Chat cooldown tracking variables
+        lastSeenChat: "",
+        lastAcceptedChatTime: 0,
+        chatCooldownSum: 0,
+        chatCooldownCount: 0,
+        averageChatCooldown: 0,
+
         // Resolves the ID of the Bat (best for digging)
         getBatId: function() {
             for (let i = 0; i < _0xca1cdc.ev.length; i++) {
@@ -5945,6 +5952,12 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             else if (cmd === "/autochat" && parts.length >= 2) {
                 let state = parts[1].toLowerCase() === "true";
                 this.autoChatActive = state;
+                if (state) {
+                    this.lastSeenChat = "";
+                    this.lastAcceptedChatTime = 0;
+                    this.chatCooldownSum = 0;
+                    this.chatCooldownCount = 0;
+                }
                 _0x336d9a("AutoChat: " + (state ? "ON" : "OFF"));
             }
             else if (cmd === "/autoeat" && parts.length >= 2) {
@@ -6121,10 +6134,30 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 }
             }
 
-            // AutoChat
+            // AutoChat + Rate Limit Monitoring
             if (this.autoChatActive) {
+                // Try sending continuously at 60fps
                 let hex = Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
                 __originalSend(new Uint8Array([_0xca1cdc.wT.iChat, ...new TextEncoder().encode(hex)]));
+
+                // Detect when the server actually accepted the chat and broadcasted it
+                if (_0x466240 && _0x466240.chat && _0x466240.chat !== this.lastSeenChat) {
+                    if (this.lastAcceptedChatTime > 0) {
+                        let diff = now - this.lastAcceptedChatTime;
+                        this.chatCooldownSum += diff;
+                        this.chatCooldownCount++;
+                        this.averageChatCooldown = Math.round(this.chatCooldownSum / this.chatCooldownCount);
+                        
+                        console.log(`[AutoChat] Message accepted! Diff: ${diff}ms | Avg Cooldown: ${this.averageChatCooldown}ms`);
+                        
+                        // Notify UI every 5 successful messages
+                        if (this.chatCooldownCount % 5 === 0) {
+                            _0x336d9a(`AutoChat Avg Cooldown: ${this.averageChatCooldown}ms (Samples: ${this.chatCooldownCount})`);
+                        }
+                    }
+                    this.lastAcceptedChatTime = now;
+                    this.lastSeenChat = _0x466240.chat;
+                }
             }
 
             // AutoEat
