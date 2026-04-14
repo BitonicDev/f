@@ -2839,9 +2839,8 @@
             _0x336d9a("Failed to login. Retrying...");
           } else if ("connectionIdle" === _0x13e297) {
             _0x336d9a("Kicked due to inactivity. Reconnecting...");
-          } else {
-            _0x140eae = false;
-            _0x29073a("KICKED!", _0x169fa1);
+} else {
+            _0x336d9a("Kicked! Auto-reconnecting... (" + _0x169fa1 + ")");
           }
           break;
         case _0xca1cdc.wT.loggedIn:
