@@ -5864,100 +5864,30 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             return (val * this.gridSize) - this.gridOffset + (this.gridSize / 2);
         },
 
-        showHelpModal: function() {
-            let modal = document.getElementById("autoplay-help-modal");
-            
-            // If the modal doesn't exist yet, clone it from a native game modal
-            // This guarantees we get the exact SVGs, transitions, and styles
-            if (!modal) {
-                const baseModal = document.querySelector(".controls") || document.querySelector(".dialog");
-                if (baseModal) {
-                    modal = baseModal.cloneNode(true);
-                    modal.id = "autoplay-help-modal";
-                    modal.classList.remove("show"); // Ensure it's hidden initially
-                    
-                    // Set the title
-                    const title = modal.querySelector(".dialog-title");
-                    if (title) title.setAttribute("stroke", "Bot Commands");
-                    
-                    // Clear out and tag the content area
-                    const content = modal.querySelector(".dialog-content");
-                    if (content) {
-                        content.id = "autoplay-help-content";
-                        content.innerHTML = "";
-                    }
-                    
-                    // Set up the exact same close button behavior
-                    const closeBtn = modal.querySelector(".dialog-close");
-                    if (closeBtn) {
-                        closeBtn.onclick = () => {
-                            modal.classList.remove("show");
-                            const overlay = document.querySelector(".menu-overlay");
-                            if (overlay) overlay.classList.remove("show");
-                        };
-                    }
-                    
-                    // Insert it right after the base modal so it lives in the same container
-                    baseModal.parentNode.insertBefore(modal, baseModal.nextSibling);
-                }
-            }
-            
-            this.updateHelpContent();
-            
-            // Force a DOM reflow so the transition animation actually plays
-            void modal.offsetWidth; 
-            
-            // Open the modal and the game's dark background overlay
-            modal.classList.add("show");
-            const overlay = document.querySelector(".menu-overlay");
-            if (overlay) overlay.classList.add("show");
-        },
-
-        updateHelpContent: function() {
-            let content = document.getElementById("autoplay-help-content");
-            if (!content) return;
-            
-            // Use the game's native .slot classes to make everything match perfectly
-            const makeSlot = (label, val, color) => {
-                let valHtml = val ? `<span stroke="${val}" style="color: ${color || '#fff'}"></span>` : '';
-                return `<div class="slot"><span stroke="${label}" style="color: #fff"></span>${valHtml}</div>`;
-            };
-            
-            const makeHeader = (label) => {
-                return `<div class="slot" style="background: rgba(0,0,0,0.3); justify-content: center; margin-top: 10px;">
-                            <span stroke="${label}" style="color: #ffd66f;"></span>
-                        </div>`;
-            };
-
-            let html = "";
-            html += makeHeader("TOGGLES");
-            html += makeSlot("/autoemp [bool]", this.autoEmpActive ? "ON" : "OFF", this.autoEmpActive ? "#94fa50" : "#ff6b6b");
-            html += makeSlot("/autocactus [bool]", this.autoCactusActive ? "ON" : "OFF", this.autoCactusActive ? "#94fa50" : "#ff6b6b");
-            html += makeSlot("/autochat [bool]", this.autoChatActive ? "ON" : "OFF", this.autoChatActive ? "#94fa50" : "#ff6b6b");
-            html += makeSlot("/autoeat [bool]", this.autoEatActive ? "ON" : "OFF", this.autoEatActive ? "#94fa50" : "#ff6b6b");
-            html += makeSlot("/zoom [val]", this.zoomVal + "x", "#40d1ff");
-            html += makeSlot("/reqmats [count]", this.reqmatsRemaining > 0 ? this.reqmatsRemaining + " left" : "OFF", this.reqmatsRemaining > 0 ? "#94fa50" : "#ff6b6b");
-            
-            html += makeHeader("ACTIONS");
-            html += makeSlot("/goto [x] [y]", "");
-            html += makeSlot("/stop", "");
-            html += makeSlot("/leave [id]", "");
-            html += makeSlot("/stream [id]", "");
-            html += makeSlot("/gift [id] [pct]", "");
-            html += makeSlot("/account [user]", "");
-            html += makeSlot("/kick [id]", "");
-            html += makeSlot("/deleteclan", "");
-
-            content.innerHTML = html;
-        },
-
         handleCommand: function(msg) {
             if (!msg) return;
             let parts = msg.trim().split(" ");
             let cmd = parts[0].toLowerCase();
 
             if (cmd === "/help") {
-                this.showHelpModal();
+                let helpText = "=== Bot Commands & Status ===\n\n" +
+                               "--- Toggles ---\n" +
+                               "/autoemp [bool] - " + (this.autoEmpActive ? "ON" : "OFF") + "\n" +
+                               "/autocactus [bool] - " + (this.autoCactusActive ? "ON" : "OFF") + "\n" +
+                               "/autochat [bool] - " + (this.autoChatActive ? "ON" : "OFF") + "\n" +
+                               "/autoeat [bool] - " + (this.autoEatActive ? "ON" : "OFF") + "\n" +
+                               "/zoom [val] - " + this.zoomVal + "x\n" +
+                               "/reqmats [count] - " + (this.reqmatsRemaining > 0 ? this.reqmatsRemaining + " remaining" : "Inactive") + "\n\n" +
+                               "--- Actions ---\n" +
+                               "/goto [x] [y]\n" +
+                               "/stop\n" +
+                               "/leave [id]\n" +
+                               "/stream [id]\n" +
+                               "/gift [id] [pct]\n" +
+                               "/account [user]\n" +
+                               "/kick [id]\n" +
+                               "/deleteclan";
+                alert(helpText);
             }
             else if (cmd === "/goto" && parts.length >= 3) {
                 this.targetX = parseFloat(parts[1]);
@@ -6082,9 +6012,6 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 __originalSend(new Uint8Array([_0xca1cdc.wT.iClanLeave]));
                 _0x336d9a("Deleted clan (kicked all and left).");
             }
-            
-            // Re-render UI text if the help modal happens to be open
-            this.updateHelpContent();
         },
 
         sendGift: function(targetId, mult = 1.0) {
@@ -6224,12 +6151,11 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             
             // Auto-ReqMats
             if (this.reqmatsRemaining > 0) {
-                if (now - this.lastReqmatsTime >= 31500) { // 31.5 seconds - guarantees the server's 30s cooldown has passed safely
+                if (now - this.lastReqmatsTime >= 30500) { // Safely repeats every 30.5 seconds
                     __originalSend(new Uint8Array([_0xca1cdc.wT.iReqMats])); // Send request packet
                     this.reqmatsRemaining--;
                     this.lastReqmatsTime = now;
                     _0x336d9a(`Requested materials. (${this.reqmatsRemaining} remaining)`);
-                    this.updateHelpContent(); // update the modal UI 
                 }
             }
 
@@ -6342,18 +6268,6 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             _0x5629b9();
         }
     };
-
-    // Make Escape key close our custom modal correctly
-    document.addEventListener("keydown", (e) => {
-        if (e.code === "Escape") {
-            let m = document.getElementById("autoplay-help-modal");
-            if (m && m.classList.contains("show")) {
-                m.classList.remove("show");
-                const overlay = document.querySelector(".menu-overlay");
-                if (overlay) overlay.classList.remove("show");
-            }
-        }
-    });
 
     // Hotkey listener for Command Prompt (Alt + K)
     document.addEventListener("keydown", (e) => {
