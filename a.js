@@ -5866,80 +5866,70 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
 
         showHelpModal: function() {
             let modal = document.getElementById("autoplay-help-modal");
+            
             if (!modal) {
                 modal = document.createElement("div");
                 modal.id = "autoplay-help-modal";
-                // Style independently of game CSS to guarantee visibility
-                modal.style.position = "fixed";
-                modal.style.top = "50%";
-                modal.style.left = "50%";
-                modal.style.transform = "translate(-50%, -50%)";
-                modal.style.backgroundColor = "rgba(0, 0, 0, 0.85)";
-                modal.style.border = "3px solid #35354d";
-                modal.style.borderRadius = "10px";
-                modal.style.color = "#fff";
-                modal.style.padding = "25px";
-                modal.style.zIndex = "999999";
-                modal.style.fontFamily = "sans-serif";
-                modal.style.fontSize = "15px";
-                modal.style.minWidth = "320px";
-                modal.style.boxShadow = "0 0 20px rgba(0,0,0,0.8)";
+                // Inherit the exact native classes used for menus like "Controls"
+                modal.className = "dialog controls"; 
                 
-                let closeBtn = document.createElement("div");
-                closeBtn.innerText = "✖";
-                closeBtn.style.position = "absolute";
-                closeBtn.style.top = "10px";
-                closeBtn.style.right = "15px";
-                closeBtn.style.cursor = "pointer";
-                closeBtn.style.color = "#ff6b6b";
-                closeBtn.style.fontWeight = "bold";
-                closeBtn.style.fontSize = "18px";
-                closeBtn.onclick = () => { modal.style.display = "none"; };
+                modal.innerHTML = `
+                    <div class="dialog-title" stroke="Bot Commands"></div>
+                    <div class="dialog-close"></div>
+                    <div class="dialog-content" id="autoplay-help-content"></div>
+                `;
                 
-                let title = document.createElement("h2");
-                title.innerText = "🤖 Bot Commands";
-                title.style.marginTop = "0";
-                title.style.marginBottom = "15px";
-                title.style.color = "#fff";
-                title.style.textShadow = "2px 2px 0px #000";
+                // Clicking the native X button closes the modal and the dark background overlay
+                modal.querySelector('.dialog-close').onclick = () => {
+                    modal.classList.remove('show');
+                    if (_0x1a94b3) _0x1a94b3.classList.remove('show'); 
+                };
                 
-                let content = document.createElement("div");
-                content.id = "autoplay-help-content";
-                content.style.lineHeight = "1.6";
-                
-                modal.appendChild(closeBtn);
-                modal.appendChild(title);
-                modal.appendChild(content);
+                // Append directly to body so it displays safely above canvas
                 document.body.appendChild(modal);
             }
             
             this.updateHelpContent();
-            modal.style.display = "block";
+            modal.classList.add("show");
+            if (_0x1a94b3) _0x1a94b3.classList.add("show"); // Shows the game's dark background overlay
         },
 
         updateHelpContent: function() {
             let content = document.getElementById("autoplay-help-content");
-            if (content) {
-                content.innerHTML = `
-                    <div style="margin-bottom: 5px; color: #ffd66f; font-size: 17px; font-weight: bold; border-bottom: 2px solid #555; padding-bottom: 5px;">Status & Toggles</div>
-                    <div>/autoemp [bool] - <b><span style="color:${this.autoEmpActive ? '#94fa50' : '#ff6b6b'}">${this.autoEmpActive ? "ON" : "OFF"}</span></b></div>
-                    <div>/autocactus [bool] - <b><span style="color:${this.autoCactusActive ? '#94fa50' : '#ff6b6b'}">${this.autoCactusActive ? "ON" : "OFF"}</span></b></div>
-                    <div>/autochat [bool] - <b><span style="color:${this.autoChatActive ? '#94fa50' : '#ff6b6b'}">${this.autoChatActive ? "ON" : "OFF"}</span></b></div>
-                    <div>/autoeat [bool] - <b><span style="color:${this.autoEatActive ? '#94fa50' : '#ff6b6b'}">${this.autoEatActive ? "ON" : "OFF"}</span></b></div>
-                    <div>/zoom [val] - <b><span style="color:#40d1ff">${this.zoomVal}x</span></b></div>
-                    <div>/reqmats [count] - <b><span style="color:${this.reqmatsRemaining > 0 ? '#94fa50' : '#ff6b6b'}">${this.reqmatsRemaining > 0 ? this.reqmatsRemaining + ' remaining' : 'Inactive'}</span></b></div>
-                    <br>
-                    <div style="margin-bottom: 5px; color: #40d1ff; font-size: 17px; font-weight: bold; border-bottom: 2px solid #555; padding-bottom: 5px;">Actions</div>
-                    <div>/goto [x] [y]</div>
-                    <div>/stop</div>
-                    <div>/leave [id]</div>
-                    <div>/stream [id]</div>
-                    <div>/gift [id] [pct]</div>
-                    <div>/account [user]</div>
-                    <div>/kick [id]</div>
-                    <div>/deleteclan</div>
-                `;
-            }
+            if (!content) return;
+            
+            // Helper to generate the native game rows (slots) and text outline (stroke)
+            const makeSlot = (label, val, color) => {
+                let valHtml = val ? `<span stroke="${val}" style="color: ${color || '#fff'}"></span>` : '';
+                return `<div class="slot"><span stroke="${label}" style="color: #fff"></span>${valHtml}</div>`;
+            };
+            
+            const makeHeader = (label) => {
+                return `<div class="slot" style="background: transparent; border: none; justify-content: center; padding: 10px 0 0 0;">
+                            <span stroke="${label}" style="color: #ffd66f;"></span>
+                        </div>`;
+            };
+
+            let html = "";
+            html += makeHeader("--- TOGGLES ---");
+            html += makeSlot("/autoemp [bool]", this.autoEmpActive ? "ON" : "OFF", this.autoEmpActive ? "#94fa50" : "#ff6b6b");
+            html += makeSlot("/autocactus [bool]", this.autoCactusActive ? "ON" : "OFF", this.autoCactusActive ? "#94fa50" : "#ff6b6b");
+            html += makeSlot("/autochat [bool]", this.autoChatActive ? "ON" : "OFF", this.autoChatActive ? "#94fa50" : "#ff6b6b");
+            html += makeSlot("/autoeat [bool]", this.autoEatActive ? "ON" : "OFF", this.autoEatActive ? "#94fa50" : "#ff6b6b");
+            html += makeSlot("/zoom [val]", this.zoomVal + "x", "#40d1ff");
+            html += makeSlot("/reqmats [count]", this.reqmatsRemaining > 0 ? this.reqmatsRemaining + " left" : "OFF", this.reqmatsRemaining > 0 ? "#94fa50" : "#ff6b6b");
+            
+            html += makeHeader("--- ACTIONS ---");
+            html += makeSlot("/goto [x] [y]", "");
+            html += makeSlot("/stop", "");
+            html += makeSlot("/leave [id]", "");
+            html += makeSlot("/stream [id]", "");
+            html += makeSlot("/gift [id] [pct]", "");
+            html += makeSlot("/account [user]", "");
+            html += makeSlot("/kick [id]", "");
+            html += makeSlot("/deleteclan", "");
+
+            content.innerHTML = html;
         },
 
         handleCommand: function(msg) {
@@ -6333,6 +6323,16 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             _0x5629b9();
         }
     };
+
+    // Global listener so hitting ESC closes our help modal if it's open
+    document.addEventListener("keydown", (e) => {
+        if (e.code === "Escape") {
+            let m = document.getElementById("autoplay-help-modal");
+            if (m && m.classList.contains("show")) {
+                m.classList.remove("show");
+            }
+        }
+    });
 
     // Hotkey listener for Command Prompt (Alt + K)
     document.addEventListener("keydown", (e) => {
