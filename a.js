@@ -5869,50 +5869,77 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             if (!modal) {
                 modal = document.createElement("div");
                 modal.id = "autoplay-help-modal";
-                // Uses the same classes the game uses for its UI panels (like .profile or .shop)
-                modal.className = "dialog profile show"; 
-                modal.style.zIndex = "9999";
+                // Style independently of game CSS to guarantee visibility
+                modal.style.position = "fixed";
+                modal.style.top = "50%";
+                modal.style.left = "50%";
+                modal.style.transform = "translate(-50%, -50%)";
+                modal.style.backgroundColor = "rgba(0, 0, 0, 0.85)";
+                modal.style.border = "3px solid #35354d";
+                modal.style.borderRadius = "10px";
+                modal.style.color = "#fff";
+                modal.style.padding = "25px";
+                modal.style.zIndex = "999999";
+                modal.style.fontFamily = "sans-serif";
+                modal.style.fontSize = "15px";
+                modal.style.minWidth = "320px";
+                modal.style.boxShadow = "0 0 20px rgba(0,0,0,0.8)";
                 
-                modal.innerHTML = `
-                    <div class="dialog-title"></div>
-                    <div class="dialog-close"></div>
-                    <div class="dialog-content" style="text-align: left; padding: 15px; font-family: monospace; font-size: 15px; overflow-y: auto;">
-                    </div>
-                `;
+                let closeBtn = document.createElement("div");
+                closeBtn.innerText = "✖";
+                closeBtn.style.position = "absolute";
+                closeBtn.style.top = "10px";
+                closeBtn.style.right = "15px";
+                closeBtn.style.cursor = "pointer";
+                closeBtn.style.color = "#ff6b6b";
+                closeBtn.style.fontWeight = "bold";
+                closeBtn.style.fontSize = "18px";
+                closeBtn.onclick = () => { modal.style.display = "none"; };
                 
-                // Add close functionality
-                modal.querySelector('.dialog-close').onclick = () => {
-                    modal.classList.remove('show');
-                };
+                let title = document.createElement("h2");
+                title.innerText = "🤖 Bot Commands";
+                title.style.marginTop = "0";
+                title.style.marginBottom = "15px";
+                title.style.color = "#fff";
+                title.style.textShadow = "2px 2px 0px #000";
                 
-                document.querySelector(".menu").appendChild(modal);
+                let content = document.createElement("div");
+                content.id = "autoplay-help-content";
+                content.style.lineHeight = "1.6";
+                
+                modal.appendChild(closeBtn);
+                modal.appendChild(title);
+                modal.appendChild(content);
+                document.body.appendChild(modal);
             }
             
-            // Use the "stroke" attribute trick this game uses to style its text outlines
-            modal.querySelector('.dialog-title').setAttribute("stroke", "Bot Commands");
-            
-            let content = modal.querySelector(".dialog-content");
-            content.innerHTML = `
-                <div style="margin-bottom: 10px; color: #ffeb3b; font-size: 16px;"><b>Status & Toggles</b></div>
-                <div>/autoemp [bool] - <b><span style="color:${this.autoEmpActive ? '#34fc32' : '#ff3529'}">${this.autoEmpActive}</span></b></div>
-                <div>/autocactus [bool] - <b><span style="color:${this.autoCactusActive ? '#34fc32' : '#ff3529'}">${this.autoCactusActive}</span></b></div>
-                <div>/autochat [bool] - <b><span style="color:${this.autoChatActive ? '#34fc32' : '#ff3529'}">${this.autoChatActive}</span></b></div>
-                <div>/autoeat [bool] - <b><span style="color:${this.autoEatActive ? '#34fc32' : '#ff3529'}">${this.autoEatActive}</span></b></div>
-                <div>/zoom [val] - <b><span style="color:#32dffc">${this.zoomVal}x</span></b></div>
-                <div>/reqmats [count] - <b><span style="color:${this.reqmatsRemaining > 0 ? '#34fc32' : '#ff3529'}">${this.reqmatsRemaining > 0 ? this.reqmatsRemaining + ' remaining' : 'Inactive'}</span></b></div>
-                <br>
-                <div style="margin-bottom: 10px; color: #32dffc; font-size: 16px;"><b>Actions</b></div>
-                <div>/goto [x] [y]</div>
-                <div>/stop</div>
-                <div>/leave [id]</div>
-                <div>/stream [id]</div>
-                <div>/gift [id] [pct]</div>
-                <div>/account [user]</div>
-                <div>/kick [id]</div>
-                <div>/deleteclan</div>
-            `;
-            
-            modal.classList.add("show");
+            this.updateHelpContent();
+            modal.style.display = "block";
+        },
+
+        updateHelpContent: function() {
+            let content = document.getElementById("autoplay-help-content");
+            if (content) {
+                content.innerHTML = `
+                    <div style="margin-bottom: 5px; color: #ffd66f; font-size: 17px; font-weight: bold; border-bottom: 2px solid #555; padding-bottom: 5px;">Status & Toggles</div>
+                    <div>/autoemp [bool] - <b><span style="color:${this.autoEmpActive ? '#94fa50' : '#ff6b6b'}">${this.autoEmpActive ? "ON" : "OFF"}</span></b></div>
+                    <div>/autocactus [bool] - <b><span style="color:${this.autoCactusActive ? '#94fa50' : '#ff6b6b'}">${this.autoCactusActive ? "ON" : "OFF"}</span></b></div>
+                    <div>/autochat [bool] - <b><span style="color:${this.autoChatActive ? '#94fa50' : '#ff6b6b'}">${this.autoChatActive ? "ON" : "OFF"}</span></b></div>
+                    <div>/autoeat [bool] - <b><span style="color:${this.autoEatActive ? '#94fa50' : '#ff6b6b'}">${this.autoEatActive ? "ON" : "OFF"}</span></b></div>
+                    <div>/zoom [val] - <b><span style="color:#40d1ff">${this.zoomVal}x</span></b></div>
+                    <div>/reqmats [count] - <b><span style="color:${this.reqmatsRemaining > 0 ? '#94fa50' : '#ff6b6b'}">${this.reqmatsRemaining > 0 ? this.reqmatsRemaining + ' remaining' : 'Inactive'}</span></b></div>
+                    <br>
+                    <div style="margin-bottom: 5px; color: #40d1ff; font-size: 17px; font-weight: bold; border-bottom: 2px solid #555; padding-bottom: 5px;">Actions</div>
+                    <div>/goto [x] [y]</div>
+                    <div>/stop</div>
+                    <div>/leave [id]</div>
+                    <div>/stream [id]</div>
+                    <div>/gift [id] [pct]</div>
+                    <div>/account [user]</div>
+                    <div>/kick [id]</div>
+                    <div>/deleteclan</div>
+                `;
+            }
         },
 
         handleCommand: function(msg) {
@@ -6046,6 +6073,9 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 __originalSend(new Uint8Array([_0xca1cdc.wT.iClanLeave]));
                 _0x336d9a("Deleted clan (kicked all and left).");
             }
+            
+            // Re-render UI text if the help modal happens to be open
+            this.updateHelpContent();
         },
 
         sendGift: function(targetId, mult = 1.0) {
@@ -6185,11 +6215,12 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             
             // Auto-ReqMats
             if (this.reqmatsRemaining > 0) {
-                if (now - this.lastReqmatsTime >= 30500) { // Safely repeats every 30.5 seconds
+                if (now - this.lastReqmatsTime >= 31500) { // 31.5 seconds - guarantees the server's 30s cooldown has passed safely
                     __originalSend(new Uint8Array([_0xca1cdc.wT.iReqMats])); // Send request packet
                     this.reqmatsRemaining--;
                     this.lastReqmatsTime = now;
                     _0x336d9a(`Requested materials. (${this.reqmatsRemaining} remaining)`);
+                    this.updateHelpContent(); // update the modal UI 
                 }
             }
 
