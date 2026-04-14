@@ -5844,6 +5844,10 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
         // Chat delay tracking variable
         lastChatTime: 0,
 
+        // ReqMats Loop Variables
+        reqmatsRemaining: 0,
+        lastReqmatsTime: 0,
+
         // Resolves the ID of the Bat (best for digging)
         getBatId: function() {
             for (let i = 0; i < _0xca1cdc.ev.length; i++) {
@@ -5860,16 +5864,64 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             return (val * this.gridSize) - this.gridOffset + (this.gridSize / 2);
         },
 
+        showHelpModal: function() {
+            let modal = document.getElementById("autoplay-help-modal");
+            if (!modal) {
+                modal = document.createElement("div");
+                modal.id = "autoplay-help-modal";
+                // Uses the same classes the game uses for its UI panels (like .profile or .shop)
+                modal.className = "dialog profile show"; 
+                modal.style.zIndex = "9999";
+                
+                modal.innerHTML = `
+                    <div class="dialog-title"></div>
+                    <div class="dialog-close"></div>
+                    <div class="dialog-content" style="text-align: left; padding: 15px; font-family: monospace; font-size: 15px; overflow-y: auto;">
+                    </div>
+                `;
+                
+                // Add close functionality
+                modal.querySelector('.dialog-close').onclick = () => {
+                    modal.classList.remove('show');
+                };
+                
+                document.querySelector(".menu").appendChild(modal);
+            }
+            
+            // Use the "stroke" attribute trick this game uses to style its text outlines
+            modal.querySelector('.dialog-title').setAttribute("stroke", "Bot Commands");
+            
+            let content = modal.querySelector(".dialog-content");
+            content.innerHTML = `
+                <div style="margin-bottom: 10px; color: #ffeb3b; font-size: 16px;"><b>Status & Toggles</b></div>
+                <div>/autoemp [bool] - <b><span style="color:${this.autoEmpActive ? '#34fc32' : '#ff3529'}">${this.autoEmpActive}</span></b></div>
+                <div>/autocactus [bool] - <b><span style="color:${this.autoCactusActive ? '#34fc32' : '#ff3529'}">${this.autoCactusActive}</span></b></div>
+                <div>/autochat [bool] - <b><span style="color:${this.autoChatActive ? '#34fc32' : '#ff3529'}">${this.autoChatActive}</span></b></div>
+                <div>/autoeat [bool] - <b><span style="color:${this.autoEatActive ? '#34fc32' : '#ff3529'}">${this.autoEatActive}</span></b></div>
+                <div>/zoom [val] - <b><span style="color:#32dffc">${this.zoomVal}x</span></b></div>
+                <div>/reqmats [count] - <b><span style="color:${this.reqmatsRemaining > 0 ? '#34fc32' : '#ff3529'}">${this.reqmatsRemaining > 0 ? this.reqmatsRemaining + ' remaining' : 'Inactive'}</span></b></div>
+                <br>
+                <div style="margin-bottom: 10px; color: #32dffc; font-size: 16px;"><b>Actions</b></div>
+                <div>/goto [x] [y]</div>
+                <div>/stop</div>
+                <div>/leave [id]</div>
+                <div>/stream [id]</div>
+                <div>/gift [id] [pct]</div>
+                <div>/account [user]</div>
+                <div>/kick [id]</div>
+                <div>/deleteclan</div>
+            `;
+            
+            modal.classList.add("show");
+        },
+
         handleCommand: function(msg) {
             if (!msg) return;
             let parts = msg.trim().split(" ");
             let cmd = parts[0].toLowerCase();
 
             if (cmd === "/help") {
-                _0x336d9a("Commands: /goto [x] [y] | /stop | /leave [id] | /account [user]");
-                setTimeout(() => _0x336d9a("/stream [id] | /gift [id] [pct] | /autoemp [bool] | /autocactus [bool]"), 200);
-                setTimeout(() => _0x336d9a("/reqmats | /kick [id] | /deleteclan"), 400);
-                setTimeout(() => _0x336d9a("/autochat [bool] | /autoeat [bool] | /zoom [val]"), 600);
+                this.showHelpModal();
             }
             else if (cmd === "/goto" && parts.length >= 3) {
                 this.targetX = parseFloat(parts[1]);
@@ -5883,6 +5935,7 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 this.autoEmpActive = false;
                 this.autoChatActive = false;
                 this.autoEatActive = false;
+                this.reqmatsRemaining = 0;
                 this.resetKeys();
                 _0x336d9a("Autoplay: Stopped");
             } 
@@ -5965,8 +6018,12 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 }
             }
             else if (cmd === "/reqmats") {
-                __originalSend(new Uint8Array([_0xca1cdc.wT.iReqMats]));
-                _0x336d9a("Requested materials.");
+                let count = parts.length >= 2 ? parseInt(parts[1]) : 1;
+                if (isNaN(count) || count < 1) count = 1;
+                
+                this.reqmatsRemaining = count;
+                this.lastReqmatsTime = 0; // Force immediate trigger
+                _0x336d9a(`Auto-ReqMats started (${count} times).`);
             }
             else if (cmd === "/kick" && parts.length >= 2) {
                 let targetId = parseInt(parts[1]);
@@ -6125,6 +6182,16 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                     _0x466240.skin.viewScale = _0x466240.skin.origViewScale * this.zoomVal;
                 }
             }
+            
+            // Auto-ReqMats
+            if (this.reqmatsRemaining > 0) {
+                if (now - this.lastReqmatsTime >= 30500) { // Safely repeats every 30.5 seconds
+                    __originalSend(new Uint8Array([_0xca1cdc.wT.iReqMats])); // Send request packet
+                    this.reqmatsRemaining--;
+                    this.lastReqmatsTime = now;
+                    _0x336d9a(`Requested materials. (${this.reqmatsRemaining} remaining)`);
+                }
+            }
 
             // AutoChat rate limited to 1 message every 1 second (1000ms)
             if (this.autoChatActive) {
@@ -6240,7 +6307,7 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
     document.addEventListener("keydown", (e) => {
         if (e.altKey && e.code === "KeyK") {
             e.preventDefault();
-            let cmd = prompt("Enter bot command (e.g. /zoom 1.5, /autochat true, /autoeat true):");
+            let cmd = prompt("Enter bot command (e.g. /zoom 1.5, /autochat true, /reqmats 5):");
             if (cmd) autoplayBot.handleCommand(cmd);
         }
     });
