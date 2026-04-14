@@ -5867,51 +5867,70 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
         showHelpModal: function() {
             let modal = document.getElementById("autoplay-help-modal");
             
+            // If the modal doesn't exist yet, clone it from a native game modal
+            // This guarantees we get the exact SVGs, transitions, and styles
             if (!modal) {
-                modal = document.createElement("div");
-                modal.id = "autoplay-help-modal";
-                // Inherit the exact native classes used for menus like "Controls"
-                modal.className = "dialog controls"; 
-                
-                modal.innerHTML = `
-                    <div class="dialog-title" stroke="Bot Commands"></div>
-                    <div class="dialog-close"></div>
-                    <div class="dialog-content" id="autoplay-help-content"></div>
-                `;
-                
-                // Clicking the native X button closes the modal and the dark background overlay
-                modal.querySelector('.dialog-close').onclick = () => {
-                    modal.classList.remove('show');
-                    if (_0x1a94b3) _0x1a94b3.classList.remove('show'); 
-                };
-                
-                // Append directly to body so it displays safely above canvas
-                document.body.appendChild(modal);
+                const baseModal = document.querySelector(".controls") || document.querySelector(".dialog");
+                if (baseModal) {
+                    modal = baseModal.cloneNode(true);
+                    modal.id = "autoplay-help-modal";
+                    modal.classList.remove("show"); // Ensure it's hidden initially
+                    
+                    // Set the title
+                    const title = modal.querySelector(".dialog-title");
+                    if (title) title.setAttribute("stroke", "Bot Commands");
+                    
+                    // Clear out and tag the content area
+                    const content = modal.querySelector(".dialog-content");
+                    if (content) {
+                        content.id = "autoplay-help-content";
+                        content.innerHTML = "";
+                    }
+                    
+                    // Set up the exact same close button behavior
+                    const closeBtn = modal.querySelector(".dialog-close");
+                    if (closeBtn) {
+                        closeBtn.onclick = () => {
+                            modal.classList.remove("show");
+                            const overlay = document.querySelector(".menu-overlay");
+                            if (overlay) overlay.classList.remove("show");
+                        };
+                    }
+                    
+                    // Insert it right after the base modal so it lives in the same container
+                    baseModal.parentNode.insertBefore(modal, baseModal.nextSibling);
+                }
             }
             
             this.updateHelpContent();
+            
+            // Force a DOM reflow so the transition animation actually plays
+            void modal.offsetWidth; 
+            
+            // Open the modal and the game's dark background overlay
             modal.classList.add("show");
-            if (_0x1a94b3) _0x1a94b3.classList.add("show"); // Shows the game's dark background overlay
+            const overlay = document.querySelector(".menu-overlay");
+            if (overlay) overlay.classList.add("show");
         },
 
         updateHelpContent: function() {
             let content = document.getElementById("autoplay-help-content");
             if (!content) return;
             
-            // Helper to generate the native game rows (slots) and text outline (stroke)
+            // Use the game's native .slot classes to make everything match perfectly
             const makeSlot = (label, val, color) => {
                 let valHtml = val ? `<span stroke="${val}" style="color: ${color || '#fff'}"></span>` : '';
                 return `<div class="slot"><span stroke="${label}" style="color: #fff"></span>${valHtml}</div>`;
             };
             
             const makeHeader = (label) => {
-                return `<div class="slot" style="background: transparent; border: none; justify-content: center; padding: 10px 0 0 0;">
+                return `<div class="slot" style="background: rgba(0,0,0,0.3); justify-content: center; margin-top: 10px;">
                             <span stroke="${label}" style="color: #ffd66f;"></span>
                         </div>`;
             };
 
             let html = "";
-            html += makeHeader("--- TOGGLES ---");
+            html += makeHeader("TOGGLES");
             html += makeSlot("/autoemp [bool]", this.autoEmpActive ? "ON" : "OFF", this.autoEmpActive ? "#94fa50" : "#ff6b6b");
             html += makeSlot("/autocactus [bool]", this.autoCactusActive ? "ON" : "OFF", this.autoCactusActive ? "#94fa50" : "#ff6b6b");
             html += makeSlot("/autochat [bool]", this.autoChatActive ? "ON" : "OFF", this.autoChatActive ? "#94fa50" : "#ff6b6b");
@@ -5919,7 +5938,7 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             html += makeSlot("/zoom [val]", this.zoomVal + "x", "#40d1ff");
             html += makeSlot("/reqmats [count]", this.reqmatsRemaining > 0 ? this.reqmatsRemaining + " left" : "OFF", this.reqmatsRemaining > 0 ? "#94fa50" : "#ff6b6b");
             
-            html += makeHeader("--- ACTIONS ---");
+            html += makeHeader("ACTIONS");
             html += makeSlot("/goto [x] [y]", "");
             html += makeSlot("/stop", "");
             html += makeSlot("/leave [id]", "");
@@ -6324,12 +6343,14 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
         }
     };
 
-    // Global listener so hitting ESC closes our help modal if it's open
+    // Make Escape key close our custom modal correctly
     document.addEventListener("keydown", (e) => {
         if (e.code === "Escape") {
             let m = document.getElementById("autoplay-help-modal");
             if (m && m.classList.contains("show")) {
                 m.classList.remove("show");
+                const overlay = document.querySelector(".menu-overlay");
+                if (overlay) overlay.classList.remove("show");
             }
         }
     });
