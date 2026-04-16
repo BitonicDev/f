@@ -5848,6 +5848,18 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
         reqmatsRemaining: 0,
         lastReqmatsTime: 0,
 
+        // --- NEW FEATURES ---
+        antiKickActive: true,      // 1. Auto-reload instead of kick screen
+        autoRespawnActive: false,  // 2. Auto-respawn skipping death screen
+        noIframesActive: false,    // 3. No iframes by simulating canvas tap without attack
+        coordsActive: true,        // 4. Coords UI toggle
+
+        wasDead: true,
+        iframeDropped: false,
+        reloading: false,
+        coordsEl: null,
+        coordsText: null,
+
         // Resolves the ID of the Bat (best for digging)
         getBatId: function() {
             for (let i = 0; i < _0xca1cdc.ev.length; i++) {
@@ -5876,6 +5888,10 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                                "/autocactus [bool] - " + (this.autoCactusActive ? "ON" : "OFF") + "\n" +
                                "/autochat [bool] - " + (this.autoChatActive ? "ON" : "OFF") + "\n" +
                                "/autoeat [bool] - " + (this.autoEatActive ? "ON" : "OFF") + "\n" +
+                               "/antikick [bool] - " + (this.antiKickActive ? "ON" : "OFF") + "\n" +
+                               "/autorespawn [bool] - " + (this.autoRespawnActive ? "ON" : "OFF") + "\n" +
+                               "/noiframes [bool] - " + (this.noIframesActive ? "ON" : "OFF") + "\n" +
+                               "/coords [bool] - " + (this.coordsActive ? "ON" : "OFF") + "\n" +
                                "/zoom [val] - " + this.zoomVal + "x\n" +
                                "/reqmats [count] - " + (this.reqmatsRemaining > 0 ? this.reqmatsRemaining + " remaining" : "Inactive") + "\n\n" +
                                "--- Actions ---\n" +
@@ -5975,6 +5991,23 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 let state = parts[1].toLowerCase() === "true";
                 this.autoEatActive = state;
                 _0x336d9a("AutoEat: " + (state ? "ON" : "OFF"));
+            }
+            else if (cmd === "/antikick" && parts.length >= 2) {
+                this.antiKickActive = parts[1].toLowerCase() === "true";
+                _0x336d9a("AntiKick: " + (this.antiKickActive ? "ON" : "OFF"));
+            }
+            else if (cmd === "/autorespawn" && parts.length >= 2) {
+                this.autoRespawnActive = parts[1].toLowerCase() === "true";
+                _0x336d9a("AutoRespawn: " + (this.autoRespawnActive ? "ON" : "OFF"));
+            }
+            else if (cmd === "/noiframes" && parts.length >= 2) {
+                this.noIframesActive = parts[1].toLowerCase() === "true";
+                _0x336d9a("NoIframes: " + (this.noIframesActive ? "ON" : "OFF"));
+            }
+            else if (cmd === "/coords" && parts.length >= 2) {
+                this.coordsActive = parts[1].toLowerCase() === "true";
+                if (this.coordsEl) this.coordsEl.style.display = this.coordsActive ? "" : "none";
+                _0x336d9a("Coords: " + (this.coordsActive ? "ON" : "OFF"));
             }
             else if (cmd === "/zoom" && parts.length >= 2) {
                 let val = parseFloat(parts[1]);
@@ -6149,6 +6182,84 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 }
             }
             
+            // --- 1. AntiKick ---
+            if (this.antiKickActive) {
+                let alertBox = document.querySelector(".alert");
+                if (alertBox && alertBox.style.display !== "none") {
+                    if (!this.reloading) {
+                        this.reloading = true;
+                        _0x336d9a("AntiKick: Reloading...");
+                        setTimeout(() => location.reload(), 500);
+                    }
+                }
+            }
+
+            // --- 2. AutoRespawn ---
+            let isDead = !_0x466240;
+            if (this.autoRespawnActive && isDead && !this.wasDead) {
+                setTimeout(() => {
+                    let nameInput = document.querySelector('.nickname');
+                    let nameStr = nameInput ? nameInput.value.trim().slice(0, 16) : "";
+                    let nameBytes = new TextEncoder().encode(nameStr);
+                    let buf = new Uint8Array(2 + nameBytes.length);
+                    buf[0] = 0; // joinGame packet ID
+                    buf[1] = typeof _0x40dd6b !== 'undefined' ? _0x40dd6b : 0; // skin color
+                    buf.set(nameBytes, 2);
+                    if (typeof __originalSend === "function") __originalSend(buf);
+                    _0x336d9a("AutoRespawn: Respawning...");
+                }, 1000); // slight delay to allow server death processing
+            }
+            this.wasDead = isDead;
+
+            // --- 3. NoIframes ---
+            if (this.noIframesActive && _0x466240 && _0x466240.spawnImmunity) {
+                if (!this.iframeDropped) {
+                    // Simulate a non-attack "tap" / slight movement to shed iframes safely
+                    let buf = new Uint8Array(2);
+                    buf[0] = 2; // iAngle
+                    buf[1] = typeof _0xca1cdc !== 'undefined' ? _0xca1cdc.eG(_0x466240.angle + 0.01) : 0;
+                    if (typeof __originalSend === "function") __originalSend(buf);
+                    
+                    // Trigger local physical state evaluation to cement the loss of iframes
+                    if (typeof _0x5629b9 === "function") _0x5629b9();
+                    this.iframeDropped = true;
+                }
+            } else if (_0x466240 && !_0x466240.spawnImmunity) {
+                this.iframeDropped = false;
+            }
+
+            // --- 4. Coords ---
+            if (this.coordsActive && _0x466240) {
+                if (!this.coordsEl) {
+                    let killCountSpan = document.querySelector(".kill-count span");
+                    let killCountDiv = killCountSpan ? killCountSpan.parentNode : null;
+                    if (killCountDiv && killCountDiv.parentNode) {
+                        this.coordsEl = document.createElement("div");
+                        this.coordsEl.className = "kill-count bot-coords"; // Reuse existing style
+                        this.coordsEl.style.marginBottom = "5px";
+                        
+                        let iconSpan = document.createElement("span");
+                        iconSpan.innerHTML = "📍 "; 
+                        this.coordsEl.appendChild(iconSpan);
+                        
+                        this.coordsText = document.createElement("span");
+                        this.coordsEl.appendChild(this.coordsText);
+                        
+                        killCountDiv.parentNode.insertBefore(this.coordsEl, killCountDiv);
+                    }
+                }
+                if (this.coordsEl && this.coordsText) {
+                    this.coordsEl.style.display = "";
+                    let cx = Math.round(_0x466240.x);
+                    let cy = Math.round(_0x466240.y);
+                    let cStr = `${cx}, ${cy}`;
+                    this.coordsText.setAttribute("stroke", cStr);
+                    this.coordsText.innerText = cStr;
+                }
+            } else if (this.coordsEl) {
+                this.coordsEl.style.display = "none";
+            }
+
             // Auto-ReqMats
             if (this.reqmatsRemaining > 0) {
                 if (now - this.lastReqmatsTime >= 30500) { // Safely repeats every 30.5 seconds
