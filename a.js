@@ -5849,14 +5849,12 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
         lastReqmatsTime: 0,
 
         // --- NEW FEATURES ---
-        antiKickActive: true,      // 1. Auto-reload instead of kick screen
-        autoRespawnActive: false,  // 2. Auto-respawn skipping death screen
-        noIframesActive: false,    // 3. No iframes by simulating canvas tap without attack
-        coordsActive: true,        // 4. Coords UI toggle
+        autoRespawnActive: false,  // Auto-respawn skipping death screen
+        noIframesActive: false,    // No iframes by simulating attack micro-click
+        coordsActive: true,        // Coords UI toggle
 
-        wasDead: true,
         iframeDropped: false,
-        reloading: false,
+        iframeDropping: false,
         coordsEl: null,
         coordsText: null,
 
@@ -5888,7 +5886,6 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                                "/autocactus [bool] - " + (this.autoCactusActive ? "ON" : "OFF") + "\n" +
                                "/autochat [bool] - " + (this.autoChatActive ? "ON" : "OFF") + "\n" +
                                "/autoeat [bool] - " + (this.autoEatActive ? "ON" : "OFF") + "\n" +
-                               "/antikick [bool] - " + (this.antiKickActive ? "ON" : "OFF") + "\n" +
                                "/autorespawn [bool] - " + (this.autoRespawnActive ? "ON" : "OFF") + "\n" +
                                "/noiframes [bool] - " + (this.noIframesActive ? "ON" : "OFF") + "\n" +
                                "/coords [bool] - " + (this.coordsActive ? "ON" : "OFF") + "\n" +
@@ -5991,10 +5988,6 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 let state = parts[1].toLowerCase() === "true";
                 this.autoEatActive = state;
                 _0x336d9a("AutoEat: " + (state ? "ON" : "OFF"));
-            }
-            else if (cmd === "/antikick" && parts.length >= 2) {
-                this.antiKickActive = parts[1].toLowerCase() === "true";
-                _0x336d9a("AntiKick: " + (this.antiKickActive ? "ON" : "OFF"));
             }
             else if (cmd === "/autorespawn" && parts.length >= 2) {
                 this.autoRespawnActive = parts[1].toLowerCase() === "true";
@@ -6181,54 +6174,49 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                     _0x466240.skin.viewScale = _0x466240.skin.origViewScale * this.zoomVal;
                 }
             }
-            
-            // --- 1. AntiKick ---
-            if (this.antiKickActive) {
-                let alertBox = document.querySelector(".alert");
-                if (alertBox && alertBox.style.display !== "none") {
-                    if (!this.reloading) {
-                        this.reloading = true;
-                        _0x336d9a("AntiKick: Reloading...");
-                        setTimeout(() => location.reload(), 500);
+
+            // --- 1. AutoRespawn (Triggers UI clicks to properly cycle states) ---
+            if (this.autoRespawnActive && !_0x466240) {
+                // Ensure we aren't at the disconnected / alert screen before clicking
+                let alertVisible = _0x2885af && _0x2885af.style.display !== "none";
+                if (!alertVisible) {
+                    // If death screen overlay is visible
+                    if (_0x17eee1 && _0x17eee1.style.display === "") {
+                        if (_0x2867cc) _0x2867cc.click(); // Click continue
+                    } 
+                    // If main menu is visible
+                    else if (_0x2fc9ad && _0x2fc9ad.style.display === "") {
+                        if (_0x3ee957) _0x3ee957.click(); // Click play
                     }
                 }
             }
 
-            // --- 2. AutoRespawn ---
-            let isDead = !_0x466240;
-            if (this.autoRespawnActive && isDead && !this.wasDead) {
-                setTimeout(() => {
-                    let nameInput = document.querySelector('.nickname');
-                    let nameStr = nameInput ? nameInput.value.trim().slice(0, 16) : "";
-                    let nameBytes = new TextEncoder().encode(nameStr);
-                    let buf = new Uint8Array(2 + nameBytes.length);
-                    buf[0] = 0; // joinGame packet ID
-                    buf[1] = typeof _0x40dd6b !== 'undefined' ? _0x40dd6b : 0; // skin color
-                    buf.set(nameBytes, 2);
-                    if (typeof __originalSend === "function") __originalSend(buf);
-                    _0x336d9a("AutoRespawn: Respawning...");
-                }, 1000); // slight delay to allow server death processing
-            }
-            this.wasDead = isDead;
-
-            // --- 3. NoIframes ---
+            // --- 2. NoIframes (Simulate attack micro-click to drop immunity safely) ---
             if (this.noIframesActive && _0x466240 && _0x466240.spawnImmunity) {
-                if (!this.iframeDropped) {
-                    // Simulate a non-attack "tap" / slight movement to shed iframes safely
-                    let buf = new Uint8Array(2);
-                    buf[0] = 2; // iAngle
-                    buf[1] = typeof _0xca1cdc !== 'undefined' ? _0xca1cdc.eG(_0x466240.angle + 0.01) : 0;
-                    if (typeof __originalSend === "function") __originalSend(buf);
+                if (!this.iframeDropped && !this.iframeDropping) {
+                    this.iframeDropping = true;
+                    // Gather real physical inputs
+                    let currentState = (_0x4cfb62.KeyW || _0x4cfb62.ArrowUp ? 0x1 : 0x0) | (_0x4cfb62.KeyS || _0x4cfb62.ArrowDown ? 0x2 : 0x0) | (_0x4cfb62.KeyA || _0x4cfb62.ArrowLeft ? 0x4 : 0x0) | (_0x4cfb62.KeyD || _0x4cfb62.ArrowRight ? 0x8 : 0x0) | (_0x12d5b2 || _0x4cfb62.Space || _0x4cfb62.mouse0 ? 0x10 : 0x0) | (_0x4cfb62.ShiftLeft || _0x4cfb62.ShiftRight ? 0x20 : 0x0) | (_0x4cfb62.mouse2 || _0x5d3d11 ? 0x40 : 0x0);
                     
-                    // Trigger local physical state evaluation to cement the loss of iframes
-                    if (typeof _0x5629b9 === "function") _0x5629b9();
-                    this.iframeDropped = true;
+                    // Force attack bit (0x10) to simulate a tap
+                    __originalSend(new Uint8Array([1, currentState | 0x10])); 
+                    
+                    // Restore original state almost instantly (5ms)
+                    setTimeout(() => {
+                        if (_0x466240) {
+                            let newState = (_0x4cfb62.KeyW || _0x4cfb62.ArrowUp ? 0x1 : 0x0) | (_0x4cfb62.KeyS || _0x4cfb62.ArrowDown ? 0x2 : 0x0) | (_0x4cfb62.KeyA || _0x4cfb62.ArrowLeft ? 0x4 : 0x0) | (_0x4cfb62.KeyD || _0x4cfb62.ArrowRight ? 0x8 : 0x0) | (_0x12d5b2 || _0x4cfb62.Space || _0x4cfb62.mouse0 ? 0x10 : 0x0) | (_0x4cfb62.ShiftLeft || _0x4cfb62.ShiftRight ? 0x20 : 0x0) | (_0x4cfb62.mouse2 || _0x5d3d11 ? 0x40 : 0x0);
+                            __originalSend(new Uint8Array([1, newState])); 
+                        }
+                        this.iframeDropped = true;
+                        this.iframeDropping = false;
+                    }, 5);
                 }
             } else if (_0x466240 && !_0x466240.spawnImmunity) {
                 this.iframeDropped = false;
+                this.iframeDropping = false;
             }
 
-            // --- 4. Coords ---
+            // --- 3. Coords ---
             if (this.coordsActive && _0x466240) {
                 if (!this.coordsEl) {
                     let killCountSpan = document.querySelector(".kill-count span");
@@ -6237,10 +6225,6 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                         this.coordsEl = document.createElement("div");
                         this.coordsEl.className = "kill-count bot-coords"; // Reuse existing style
                         this.coordsEl.style.marginBottom = "5px";
-                        
-                        let iconSpan = document.createElement("span");
-                        iconSpan.innerHTML = "📍 "; 
-                        this.coordsEl.appendChild(iconSpan);
                         
                         this.coordsText = document.createElement("span");
                         this.coordsEl.appendChild(this.coordsText);
@@ -6252,9 +6236,10 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                     this.coordsEl.style.display = "";
                     let cx = Math.round(_0x466240.x);
                     let cy = Math.round(_0x466240.y);
-                    let cStr = `${cx}, ${cy}`;
-                    this.coordsText.setAttribute("stroke", cStr);
-                    this.coordsText.innerText = cStr;
+                    let cStr = `📍 ${cx}, ${cy}`;
+                    // The game natively uses setAttribute("stroke") which correctly formats the pseudoelement
+                    // without needing to set innerText, preventing text overlap glitch!
+                    _0x5a0152(this.coordsText, cStr); 
                 }
             } else if (this.coordsEl) {
                 this.coordsEl.style.display = "none";
@@ -6384,7 +6369,7 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
     document.addEventListener("keydown", (e) => {
         if (e.altKey && e.code === "KeyK") {
             e.preventDefault();
-            let cmd = prompt("Enter bot command (e.g. /zoom 1.5, /autochat true, /reqmats 5):");
+            let cmd = prompt("Enter bot command (e.g. /zoom 1.5, /autorespawn true, /reqmats 5):");
             if (cmd) autoplayBot.handleCommand(cmd);
         }
     });
