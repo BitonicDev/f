@@ -5848,15 +5848,27 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
         reqmatsRemaining: 0,
         lastReqmatsTime: 0,
 
-        // --- NEW FEATURES ---
-        autoRespawnActive: false,  // Auto-respawn skipping death screen
-        noIframesActive: false,    // No iframes by simulating attack micro-click
-        coordsActive: true,        // Coords UI toggle
+        // UI Toggles
+        autoRespawnActive: false,
+        noIframesActive: false,
+        coordsActive: true,
+        detailsActive: false, // New Details UI Toggle
 
+        // UI State Variables
         iframeDropped: false,
         iframeDropping: false,
         coordsEl: null,
         coordsText: null,
+        detailsEl: null,
+        detailsText: null,
+
+        // Telemetry Variables
+        frameCount: 0,
+        currentFps: 0,
+        lastFpsTime: Date.now(),
+        lastPingTime: 0,
+        currentPing: 0,
+        waitingForPing: false,
 
         // Resolves the ID of the Bat (best for digging)
         getBatId: function() {
@@ -5889,6 +5901,7 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                                "/autorespawn [bool] - " + (this.autoRespawnActive ? "ON" : "OFF") + "\n" +
                                "/noiframes [bool] - " + (this.noIframesActive ? "ON" : "OFF") + "\n" +
                                "/coords [bool] - " + (this.coordsActive ? "ON" : "OFF") + "\n" +
+                               "/details [bool] - " + (this.detailsActive ? "ON" : "OFF") + "\n" +
                                "/zoom [val] - " + this.zoomVal + "x\n" +
                                "/reqmats [count] - " + (this.reqmatsRemaining > 0 ? this.reqmatsRemaining + " remaining" : "Inactive") + "\n\n" +
                                "--- Actions ---\n" +
@@ -5899,7 +5912,8 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                                "/gift [id] [pct]\n" +
                                "/account [user]\n" +
                                "/kick [id]\n" +
-                               "/deleteclan";
+                               "/deleteclan\n" + 
+                               "/server [alias/url] - Connect to us1, us2, eu1, eu2, or WS URL";
                 alert(helpText);
             }
             else if (cmd === "/goto" && parts.length >= 3) {
@@ -6002,6 +6016,11 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 if (this.coordsEl) this.coordsEl.style.display = this.coordsActive ? "" : "none";
                 _0x336d9a("Coords: " + (this.coordsActive ? "ON" : "OFF"));
             }
+            else if (cmd === "/details" && parts.length >= 2) {
+                this.detailsActive = parts[1].toLowerCase() === "true";
+                if (this.detailsEl) this.detailsEl.style.display = this.detailsActive ? "" : "none";
+                _0x336d9a("Details: " + (this.detailsActive ? "ON" : "OFF"));
+            }
             else if (cmd === "/zoom" && parts.length >= 2) {
                 let val = parseFloat(parts[1]);
                 if (!isNaN(val) && val > 0) {
@@ -6037,6 +6056,22 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 // Leave clan
                 __originalSend(new Uint8Array([_0xca1cdc.wT.iClanLeave]));
                 _0x336d9a("Deleted clan (kicked all and left).");
+            }
+            else if (cmd === "/server" && parts.length >= 2) {
+                let arg = parts[1].toLowerCase();
+                let url = "";
+                if (arg === "eu1") url = "wss://eu.poopoo.pro";
+                else if (arg === "eu2") url = "wss://eu2.poopoo.pro";
+                else if (arg === "us1") url = "wss://us.poopoo.pro";
+                else if (arg === "us2") url = "wss://us2.poopoo.pro";
+                else if (arg.includes("://")) url = parts[1];
+                
+                if (url) {
+                    _0x336d9a("Connecting to server: " + url);
+                    if (window.connect) window.connect(url);
+                } else {
+                    _0x336d9a("Invalid server alias/URL. Use us1, us2, eu1, eu2, or full WS URL.");
+                }
             }
         },
 
@@ -6161,6 +6196,12 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
         update: function() {
             let now = Date.now();
 
+            // Calculate Ping (Roundtrip from our tracked iPing)
+            if (this.waitingForPing && window.lastPacketTime > this.lastPingTime) {
+                this.currentPing = window.lastPacketTime - this.lastPingTime;
+                this.waitingForPing = false;
+            }
+
             // Zoom hook intercept
             if (_0x466240) {
                 if (!_0x466240.skin) {
@@ -6236,13 +6277,37 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                     this.coordsEl.style.display = "";
                     let cx = Math.round(_0x466240.x);
                     let cy = Math.round(_0x466240.y);
-                    let cStr = `📍 ${cx}, ${cy}`;
-                    // The game natively uses setAttribute("stroke") which correctly formats the pseudoelement
-                    // without needing to set innerText, preventing text overlap glitch!
+                    let cStr = `📌 ${cx}, ${cy}`;
                     _0x5a0152(this.coordsText, cStr); 
                 }
             } else if (this.coordsEl) {
                 this.coordsEl.style.display = "none";
+            }
+
+            // --- 4. Details (FPS, Ping, Entity Count) ---
+            if (this.detailsActive && _0x466240) {
+                if (!this.detailsEl) {
+                    let killCountSpan = document.querySelector(".kill-count span");
+                    let killCountDiv = killCountSpan ? killCountSpan.parentNode : null;
+                    if (killCountDiv && killCountDiv.parentNode) {
+                        this.detailsEl = document.createElement("div");
+                        this.detailsEl.className = "kill-count bot-details"; // Reuse existing style
+                        this.detailsEl.style.marginBottom = "5px";
+                        
+                        this.detailsText = document.createElement("span");
+                        this.detailsEl.appendChild(this.detailsText);
+                        
+                        killCountDiv.parentNode.insertBefore(this.detailsEl, killCountDiv);
+                    }
+                }
+                if (this.detailsEl && this.detailsText) {
+                    this.detailsEl.style.display = "";
+                    let numEntities = _0x5a712e ? _0x5a712e.length : 0;
+                    let dStr = `📊 FPS: ${this.currentFps} | Ping: ${this.currentPing}ms | Ent: ${numEntities}`;
+                    _0x5a0152(this.detailsText, dStr); 
+                }
+            } else if (this.detailsEl) {
+                this.detailsEl.style.display = "none";
             }
 
             // Auto-ReqMats
@@ -6365,11 +6430,24 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
         }
     };
 
+    // Fast loop strictly for catching render FPS via standard requestAnimationFrame API
+    const countFps = () => {
+        let now = Date.now();
+        autoplayBot.frameCount++;
+        if (now - autoplayBot.lastFpsTime >= 1000) {
+            autoplayBot.currentFps = autoplayBot.frameCount;
+            autoplayBot.frameCount = 0;
+            autoplayBot.lastFpsTime = now;
+        }
+        requestAnimationFrame(countFps);
+    };
+    requestAnimationFrame(countFps);
+
     // Hotkey listener for Command Prompt (Alt + K)
     document.addEventListener("keydown", (e) => {
         if (e.altKey && e.code === "KeyK") {
             e.preventDefault();
-            let cmd = prompt("Enter bot command (e.g. /zoom 1.5, /autorespawn true, /reqmats 5):");
+            let cmd = prompt("Enter bot command (e.g. /zoom 1.5, /autorespawn true, /reqmats 5, /server eu2):");
             if (cmd) autoplayBot.handleCommand(cmd);
         }
     });
@@ -6382,6 +6460,11 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 autoplayBot.handleCommand(msg);
                 return; 
             }
+        }
+        // Intercept ping to track packet delay
+        if (packet[0] === _0xca1cdc.wT.iPing) {
+            autoplayBot.lastPingTime = Date.now();
+            autoplayBot.waitingForPing = true;
         }
         __originalSend.apply(this, arguments);
     };
