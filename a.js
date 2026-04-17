@@ -5887,217 +5887,215 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             return (val * this.gridSize) - this.gridOffset + (this.gridSize / 2);
         },
 
-        openXsmMenu: function() {
-            if (document.getElementById("xsm-menu")) return;
+openXsmMenu: function() {
+    if (document.getElementById("xsm-menu")) return;
 
-            let menu = document.createElement("div");
-            menu.id = "xsm-menu";
-            menu.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);background:#1e1e24;width:320px;border-radius:10px;z-index:99999;font-family:sans-serif;box-shadow:0 10px 30px rgba(0,0,0,0.7);border:1px solid #333;overflow:hidden;";
+    let menu = document.createElement("div");
+    menu.id = "xsm-menu";
+    menu.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);background:#1e1e24;width:280px;border-radius:10px;z-index:99999;font-family:sans-serif;box-shadow:0 10px 30px rgba(0,0,0,0.7);border:1px solid #333;overflow:hidden;";
 
-            menu.innerHTML = `
-                <div id="xsm-header" style="background:#2a2a35;padding:12px;cursor:grab;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center;">
-                    <h3 style="margin:0;color:#fff;font-size:16px;">XSM Clan Request Bot</h3>
-                    <button id="xsm-close-x" style="background:transparent;border:none;color:#aaa;cursor:pointer;font-size:18px;line-height:1;">&times;</button>
+    menu.innerHTML = `
+        <div id="xsm-header" style="background:#2a2a35;padding:9px 12px;cursor:grab;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center;">
+            <h3 style="margin:0;color:#fff;font-size:13px;font-weight:500;">XSM Clan Request Bot</h3>
+            <button id="xsm-close-x" style="background:transparent;border:none;color:#aaa;cursor:pointer;font-size:16px;line-height:1;">&times;</button>
+        </div>
+        <div style="padding:10px 12px;">
+            <div id="xsm-names-container" style="max-height:160px;overflow-y:auto;margin-bottom:8px;padding-right:3px;">
+                <div class="xsm-name-row" style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">
+                    <input type="checkbox" class="xsm-prefix-check" checked style="margin:0;width:13px;height:13px;flex-shrink:0;accent-color:#2ecc71;">
+                    <input type="text" placeholder="Bot Name" class="xsm-name-input" style="flex:1;padding:5px 7px;background:#111;color:#fff;border:1px solid #333;border-radius:4px;outline:none;font-size:12px;">
+                    <button class="xsm-rem-btn" style="padding:2px 8px;background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:bold;">X</button>
                 </div>
-                <div style="padding:15px;">
-                    <div id="xsm-names-container" style="max-height:180px;overflow-y:auto;margin-bottom:10px;padding-right:5px;">
-                        <div class="xsm-name-row" style="display:flex;gap:5px;margin-bottom:8px;">
-                            <input type="text" placeholder="Bot Name" class="xsm-name-input" style="flex:1;padding:8px;background:#111;color:#fff;border:1px solid #333;border-radius:4px;outline:none;">
-                            <button class="xsm-rem-btn" style="padding:0 12px;background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">X</button>
-                        </div>
-                    </div>
-                    <button id="xsm-add-btn" style="width:100%;padding:10px;background:#3a3a4a;color:#fff;border:1px solid #4a4a5a;border-radius:5px;cursor:pointer;margin-bottom:15px;font-weight:bold;transition:0.2s;">+ Add Name</button>
-                    
-                    <div style="margin-bottom:15px;">
-                        <label style="font-size:12px;color:#aaa;margin-bottom:5px;display:block;">Target Clan ID:</label>
-                        <input type="number" id="xsm-clan-id" placeholder="e.g. 0" style="width:100%;padding:10px;box-sizing:border-box;background:#111;color:#fff;border:1px solid #333;border-radius:5px;outline:none;">
-                    </div>
-                    
-                    <div style="display:flex;gap:10px;">
-                        <button id="xsm-run-btn" style="flex:1;padding:12px;background:#2ecc71;color:#111;border:none;border-radius:5px;cursor:pointer;font-weight:bold;font-size:14px;transition:0.2s;">Run Sequence</button>
-                    </div>
-                    
-                    <div id="xsm-status" style="margin-top:15px;font-size:12px;text-align:center;color:#f1c40f;font-weight:bold;min-height:15px;"></div>
-                </div>
-            `;
+            </div>
+            <button id="xsm-add-btn" style="width:100%;padding:7px;background:#3a3a4a;color:#fff;border:1px solid #4a4a5a;border-radius:5px;cursor:pointer;margin-bottom:10px;font-weight:bold;font-size:12px;">+ Add Name</button>
+            
+            <div style="margin-bottom:10px;">
+                <label style="font-size:11px;color:#aaa;margin-bottom:4px;display:block;">Target Clan ID:</label>
+                <input type="number" id="xsm-clan-id" placeholder="e.g. 0" style="width:100%;padding:7px;box-sizing:border-box;background:#111;color:#fff;border:1px solid #333;border-radius:5px;outline:none;font-size:12px;">
+            </div>
+            
+            <button id="xsm-run-btn" style="width:100%;padding:9px;background:#2ecc71;color:#111;border:none;border-radius:5px;cursor:pointer;font-weight:bold;font-size:13px;">Run Sequence</button>
+            
+            <div id="xsm-status" style="margin-top:10px;font-size:11px;text-align:center;color:#f1c40f;font-weight:bold;min-height:14px;"></div>
+        </div>
+    `;
 
-            document.body.appendChild(menu);
+    document.body.appendChild(menu);
 
-            // Drag logic
-            let header = menu.querySelector("#xsm-header");
-            let isDragging = false;
-            let offsetX = 0, offsetY = 0;
+    // Drag logic
+    let header = menu.querySelector("#xsm-header");
+    let isDragging = false;
+    let offsetX = 0, offsetY = 0;
 
-            const onMouseMove = (e) => {
-                if (!isDragging) return;
-                menu.style.left = (e.clientX - offsetX) + "px";
-                menu.style.top = (e.clientY - offsetY) + "px";
-            };
+    const onMouseMove = (e) => {
+        if (!isDragging) return;
+        menu.style.left = (e.clientX - offsetX) + "px";
+        menu.style.top = (e.clientY - offsetY) + "px";
+    };
+    const onMouseUp = () => {
+        isDragging = false;
+        header.style.cursor = "grab";
+    };
 
-            const onMouseUp = () => {
-                isDragging = false;
-                header.style.cursor = "grab";
-            };
+    header.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        let rect = menu.getBoundingClientRect();
+        if (menu.style.transform) {
+            menu.style.transform = "none";
+            menu.style.left = rect.left + "px";
+            menu.style.top = rect.top + "px";
+        }
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+        header.style.cursor = "grabbing";
+    });
 
-            header.addEventListener("mousedown", (e) => {
-                isDragging = true;
-                let rect = menu.getBoundingClientRect();
-                // Convert transform to absolute px on first grab to avoid jumping
-                if (menu.style.transform) {
-                    menu.style.transform = "none";
-                    menu.style.left = rect.left + "px";
-                    menu.style.top = rect.top + "px";
-                }
-                offsetX = e.clientX - rect.left;
-                offsetY = e.clientY - rect.top;
-                header.style.cursor = "grabbing";
-            });
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
 
-            document.addEventListener("mousemove", onMouseMove);
-            document.addEventListener("mouseup", onMouseUp);
+    const closeMenu = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+        menu.remove();
+    };
 
-            const closeMenu = () => {
-                document.removeEventListener("mousemove", onMouseMove);
-                document.removeEventListener("mouseup", onMouseUp);
-                menu.remove();
-            };
+    menu.querySelector("#xsm-close-x").onclick = closeMenu;
 
-            menu.querySelector("#xsm-close-x").onclick = closeMenu;
+    // Helper: create a new name row
+    const makeRow = () => {
+        let row = document.createElement("div");
+        row.className = "xsm-name-row";
+        row.style.cssText = "display:flex;align-items:center;gap:5px;margin-bottom:6px;";
+        row.innerHTML = `
+            <input type="checkbox" class="xsm-prefix-check" checked style="margin:0;width:13px;height:13px;flex-shrink:0;accent-color:#2ecc71;">
+            <input type="text" placeholder="Bot Name" class="xsm-name-input" style="flex:1;padding:5px 7px;background:#111;color:#fff;border:1px solid #333;border-radius:4px;outline:none;font-size:12px;">
+            <button class="xsm-rem-btn" style="padding:2px 8px;background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:bold;">X</button>
+        `;
+        row.querySelector(".xsm-rem-btn").onclick = () => row.remove();
+        return row;
+    };
 
-            // Add new row logic
-            menu.querySelector("#xsm-add-btn").onclick = () => {
-                let row = document.createElement("div");
-                row.className = "xsm-name-row";
-                row.style.cssText = "display:flex;gap:5px;margin-bottom:8px;";
-                row.innerHTML = `
-                    <input type="text" placeholder="Bot Name" class="xsm-name-input" style="flex:1;padding:8px;background:#111;color:#fff;border:1px solid #333;border-radius:4px;outline:none;">
-                    <button class="xsm-rem-btn" style="padding:0 12px;background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">X</button>
-                `;
-                row.querySelector(".xsm-rem-btn").onclick = () => row.remove();
-                document.getElementById("xsm-names-container").appendChild(row);
-                document.getElementById("xsm-names-container").scrollTop = document.getElementById("xsm-names-container").scrollHeight;
-            };
+    menu.querySelector("#xsm-add-btn").onclick = () => {
+        let container = document.getElementById("xsm-names-container");
+        container.appendChild(makeRow());
+        container.scrollTop = container.scrollHeight;
+    };
 
-            // Remove logic for first default row
-            menu.querySelector(".xsm-rem-btn").onclick = function() {
-                this.parentElement.remove();
-            };
+    // Remove logic for first default row
+    menu.querySelector(".xsm-rem-btn").onclick = function() {
+        this.parentElement.remove();
+    };
 
-            // Run Bots
-            menu.querySelector("#xsm-run-btn").onclick = async () => {
-                let runBtn = menu.querySelector("#xsm-run-btn");
-                let status = menu.querySelector("#xsm-status");
-                
-                let clanId = parseInt(menu.querySelector("#xsm-clan-id").value);
-                if (isNaN(clanId) || clanId < 0) {
-                    status.innerText = "Invalid Clan ID!";
-                    return;
-                }
+    // Run Bots — sequential top-to-bottom (strict ordering)
+    menu.querySelector("#xsm-run-btn").onclick = async () => {
+        let runBtn = menu.querySelector("#xsm-run-btn");
+        let status = menu.querySelector("#xsm-status");
 
-                let inputs = menu.querySelectorAll(".xsm-name-input");
-                let names = Array.from(inputs).map(i => i.value.trim()).filter(n => n.length > 0);
+        let clanId = parseInt(menu.querySelector("#xsm-clan-id").value);
+        if (isNaN(clanId) || clanId < 0) {
+            status.innerText = "Invalid Clan ID!";
+            return;
+        }
 
-                if (names.length === 0) {
-                    status.innerText = "No names provided!";
-                    return;
-                }
+        // Collect rows in DOM order (top to bottom) and build name list
+        let rows = Array.from(menu.querySelectorAll(".xsm-name-row"));
+        let entries = rows.map(row => {
+            let rawName = row.querySelector(".xsm-name-input").value.trim();
+            let prefixed = row.querySelector(".xsm-prefix-check").checked;
+            let name = prefixed ? "n:" + rawName : rawName;
+            return { name, valid: rawName.length > 0 };
+        }).filter(e => e.valid);
 
-                if (typeof _0x419dc9 === "undefined" || !_0x419dc9 || !_0x419dc9.url) {
-                    status.innerText = "Not connected to any server!";
-                    return;
-                }
-                
-                let serverUrl = _0x419dc9.url;
+        if (entries.length === 0) {
+            status.innerText = "No names provided!";
+            return;
+        }
 
-                runBtn.disabled = true;
-                runBtn.style.opacity = "0.5";
+        if (typeof _0x419dc9 === "undefined" || !_0x419dc9 || !_0x419dc9.url) {
+            status.innerText = "Not connected to any server!";
+            return;
+        }
 
-                status.innerText = "Connecting all bots...";
-                status.style.color = "#f1c40f";
+        let serverUrl = _0x419dc9.url;
 
-                let bots = [];
+        runBtn.disabled = true;
+        runBtn.style.opacity = "0.5";
 
-                // 1. Connect all websockets and wait for login
-                await Promise.all(names.map((name, i) => new Promise(res => {
-                    let ws = new WebSocket(serverUrl);
-                    ws.binaryType = "arraybuffer";
-                    let uuid = crypto.randomUUID();
-                    let xorKey = 0;
-                    
-                    ws.onopen = () => {
-                        let buf = new ArrayBuffer(39);
-                        let view = new DataView(buf);
-                        view.setUint8(0, 5); // login
-                        view.setUint16(1, 0x151); // ry const
-                        let ryMod = 0x151 % 0xff;
-                        for(let j = 0; j < 36; j++) {
-                            view.setUint8(3 + j, uuid.charCodeAt(35 - j) ^ ryMod);
-                        }
-                        xorKey = view.getUint8(3 + (0x151 % 36));
-                        ws.send(buf);
-                    };
-                    
-                    ws.onmessage = (msg) => {
-                        let data = new DataView(msg.data);
-                        if (data.getUint8(0) === 3) { // loggedIn
-                            bots[i] = { ws, xorKey, name };
+        // Sequential: connect, send, close — one bot at a time, top to bottom
+        for (let i = 0; i < entries.length; i++) {
+            let { name } = entries[i];
+            status.innerText = `Sending bot ${i + 1} / ${entries.length}: ${name}`;
+            status.style.color = "#f1c40f";
+
+            await new Promise(res => {
+                let ws = new WebSocket(serverUrl);
+                ws.binaryType = "arraybuffer";
+                let uuid = crypto.randomUUID();
+                let xorKey = 0;
+                let sent = false;
+
+                ws.onopen = () => {
+                    let buf = new ArrayBuffer(39);
+                    let view = new DataView(buf);
+                    view.setUint8(0, 5);
+                    view.setUint16(1, 0x151);
+                    let ryMod = 0x151 % 0xff;
+                    for (let j = 0; j < 36; j++) {
+                        view.setUint8(3 + j, uuid.charCodeAt(35 - j) ^ ryMod);
+                    }
+                    xorKey = view.getUint8(3 + (0x151 % 36));
+                    ws.send(buf);
+                };
+
+                ws.onmessage = (msg) => {
+                    let data = new DataView(msg.data);
+                    if (data.getUint8(0) === 3 && !sent) { // loggedIn
+                        sent = true;
+
+                        const send = (pkt) => {
+                            let s = new Uint8Array(pkt);
+                            for (let j = 0; j < s.length; j++) s[j] ^= xorKey;
+                            let swp = 0x151 % s.length;
+                            let t = s[0]; s[0] = s[swp]; s[swp] = t;
+                            ws.send(s);
+                        };
+
+                        // Spawn packet
+                        let nb = new TextEncoder().encode(name.slice(0, 16));
+                        let sp = new Uint8Array(2 + nb.length);
+                        sp[0] = 0; // joinGame
+                        sp[1] = Math.floor(Math.random() * 6);
+                        sp.set(nb, 2);
+                        send(sp);
+
+                        // Clan join packet
+                        send([6, clanId]);
+
+                        // Wait 50ms for TCP flush, then close and move to next
+                        setTimeout(() => {
+                            ws.close();
                             res();
-                        }
-                    };
-                    
-                    ws.onerror = () => res();
-                    ws.onclose = () => res();
-                    
-                    setTimeout(() => res(), 5000); // 5s timeout fallback
-                })));
+                        }, 50);
+                    }
+                };
 
-                // 2. Sequential Execution to guarantee exact server-side ordering
-                status.innerText = "Executing requests in order...";
-                for (let i = 0; i < bots.length; i++) {
-                    let bot = bots[i];
-                    if (!bot || bot.ws.readyState !== 1) continue;
+                ws.onerror = () => { ws.close(); res(); };
+                ws.onclose = () => res();
+                setTimeout(() => { ws.close(); res(); }, 5000); // 5s timeout
+            });
+        }
 
-                    let send = (pkt) => {
-                        let s = new Uint8Array(pkt);
-                        for(let j = 0; j < s.length; j++) s[j] ^= bot.xorKey;
-                        let swp = 0x151 % s.length;
-                        let t = s[0];
-                        s[0] = s[swp];
-                        s[swp] = t;
-                        bot.ws.send(s);
-                    };
+        status.innerText = `All ${entries.length} bots sent in order!`;
+        status.style.color = "#2ecc71";
+        runBtn.disabled = false;
+        runBtn.style.opacity = "1";
 
-                    // Spawn packet
-                    let nb = new TextEncoder().encode(bot.name.slice(0, 16));
-                    let sp = new Uint8Array(2 + nb.length);
-                    sp[0] = 0; // joinGame
-                    sp[1] = Math.floor(Math.random() * 6); // color
-                    sp.set(nb, 2);
-                    
-                    send(sp);
-                    
-                    // Clan Join packet
-                    send([6, clanId]);
-
-                    // Wait exactly 50ms before moving to the next bot.
-                    // This allows TCP to flush and ensures strict sequence.
-                    await new Promise(r => setTimeout(r, 50)); 
-                    
-                    // Safely close connection after packet has sent
-                    bot.ws.close();
-                }
-
-                status.innerText = "All bots finished sequentially!";
-                status.style.color = "#2ecc71";
-                runBtn.disabled = false;
-                runBtn.style.opacity = "1";
-                
-                setTimeout(() => {
-                    status.innerText = "";
-                    status.style.color = "#f1c40f";
-                }, 3000);
-            };
-        },
+        setTimeout(() => {
+            status.innerText = "";
+            status.style.color = "#f1c40f";
+        }, 3000);
+    };
+},
 
         handleCommand: function(msg) {
             if (!msg) return;
