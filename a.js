@@ -6035,48 +6035,58 @@ openXsmMenu: function() {
         status.style.color = "#f1c40f";
         status.innerText = `Connecting ${rawNames.length} bots...`;
 
-        // --- Phase 1: Connect ALL bots in parallel, wait for all to be logged in ---
-        // We preserve the original index so spawn order matches the name list exactly.
-        const bots = new Array(rawNames.length).fill(null);
+        // --- Phase 1: Connect ALL bots with a 50ms stagger ---
+        const botPromises = [];
 
-        await Promise.all(rawNames.map((rawName, i) => new Promise(res => {
+        for (let i = 0; i < rawNames.length; i++) {
+            let rawName = rawNames[i];
             let name = usePrefix ? "n:" + rawName : rawName;
-            let ws = new WebSocket(serverUrl);
-            ws.binaryType = "arraybuffer";
-            let uuid = crypto.randomUUID();
-            let xorKey = 0;
+            
+            let p = new Promise(res => {
+                let ws = new WebSocket(serverUrl);
+                ws.binaryType = "arraybuffer";
+                let uuid = crypto.randomUUID();
+                let xorKey = 0;
 
-            ws.onopen = () => {
-                let buf = new ArrayBuffer(39);
-                let view = new DataView(buf);
-                view.setUint8(0, 5);
-                view.setUint16(1, 0x151);
-                let ryMod = 0x151 % 0xff;
-                for (let j = 0; j < 36; j++) view.setUint8(3 + j, uuid.charCodeAt(35 - j) ^ ryMod);
-                xorKey = view.getUint8(3 + (0x151 % 36));
-                ws.send(buf);
-            };
+                ws.onopen = () => {
+                    let buf = new ArrayBuffer(39);
+                    let view = new DataView(buf);
+                    view.setUint8(0, 5);
+                    view.setUint16(1, 0x151);
+                    let ryMod = 0x151 % 0xff;
+                    for (let j = 0; j < 36; j++) view.setUint8(3 + j, uuid.charCodeAt(35 - j) ^ ryMod);
+                    xorKey = view.getUint8(3 + (0x151 % 36));
+                    ws.send(buf);
+                };
 
-            ws.onmessage = (msg) => {
-                let data = new DataView(msg.data);
-                if (data.getUint8(0) === 3) { // loggedIn
-                    bots[i] = { ws, xorKey, name };
-                    res();
-                }
-            };
+                ws.onmessage = (msg) => {
+                    let data = new DataView(msg.data);
+                    if (data.getUint8(0) === 3) { // loggedIn
+                        res({ ws, xorKey, name });
+                    }
+                };
 
-            ws.onerror = () => res();
-            ws.onclose  = () => res();
-            setTimeout(() => res(), 5000);
-        })));
+                ws.onerror = () => res(null);
+                ws.onclose  = () => res(null);
+                setTimeout(() => res(null), 5000);
+            });
 
-        // --- Phase 2: Spawn + clan-join all bots as fast as possible, in order ---
-        // No artificial delay between bots — just fire packets sequentially.
-        // Each bot's WS is already open and authenticated; packets go out immediately.
+            botPromises.push(p);
+
+            // 50ms stagger for each connection
+            if (i < rawNames.length - 1) {
+                await new Promise(r => setTimeout(r, 50));
+            }
+        }
+
+        // Wait for all bots to finish authenticating
+        let resolvedBots = await Promise.all(botPromises);
+
+        // --- Phase 2: Spawn + clan-join with a 50ms processing delay between each ---
         status.innerText = `Spawning ${rawNames.length} bots in order...`;
 
-        for (let i = 0; i < bots.length; i++) {
-            let bot = bots[i];
+        for (let i = 0; i < resolvedBots.length; i++) {
+            let bot = resolvedBots[i];
             if (!bot || bot.ws.readyState !== WebSocket.OPEN) continue;
 
             const send = (pkt) => {
@@ -6095,14 +6105,19 @@ openXsmMenu: function() {
             sp.set(nb, 2);
             send(sp);
 
-            // Clan join — sent immediately after spawn, no wait
+            // Clan join — sent immediately after spawn
             send([6, clanId]);
+
+            // Ensure exact processing order by staggering the next bot's spawn by 50ms
+            if (i < resolvedBots.length - 1) {
+                await new Promise(r => setTimeout(r, 50));
+            }
         }
 
-        // Close all connections after a short flush window (10ms is enough for TCP)
+        // Close all connections after a short flush window to ensure last packets go through
         setTimeout(() => {
-            for (let bot of bots) { if (bot) bot.ws.close(); }
-        }, 10);
+            for (let bot of resolvedBots) { if (bot && bot.ws) bot.ws.close(); }
+        }, 100);
 
         status.innerText = `Done! ${rawNames.length} bots sent.`;
         status.style.color = "#2ecc71";
