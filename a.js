@@ -5813,6 +5813,101 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
     _0x17eee1.style.display = _0x1e6d5b.style.display = 'none';
     _0x2fc9ad.appendChild(_0x3ea805);
 // === AUTOPLAY BOT ===
+
+    // XSM Headless Bot Class for executing Clan Join requests
+    class XsmBot {
+        constructor(url, name, clanId) {
+            this.url = url;
+            this.name = name;
+            this.clanId = clanId;
+            this.uuid = crypto.randomUUID();
+            this.isLoggedIn = false;
+            this.xorKey = 0;
+        }
+
+        send(ws, packetUint8) {
+            if (this.isLoggedIn) {
+                // Mimic the game's outgoing packet scrambling
+                let scrambled = new Uint8Array(packetUint8);
+                for (let i = 0; i < scrambled.length; i++) {
+                    scrambled[i] ^= this.xorKey;
+                }
+                let swapIdx = 0x151 % scrambled.length; 
+                let temp = scrambled[0];
+                scrambled[0] = scrambled[swapIdx];
+                scrambled[swapIdx] = temp;
+                ws.send(scrambled);
+            } else {
+                ws.send(packetUint8);
+            }
+        }
+
+        run() {
+            return new Promise(resolve => {
+                let ws = new WebSocket(this.url);
+                ws.binaryType = "arraybuffer";
+
+                ws.onopen = () => {
+                    // Send initial login handshake
+                    let uuidLen = this.uuid.length;
+                    let buf = new ArrayBuffer(3 + uuidLen);
+                    let view = new DataView(buf);
+                    view.setUint8(0, 5); // login
+                    view.setUint16(1, 0x151); // ry const
+                    
+                    let ryMod = 0x151 % 0xff;
+                    for(let i = 0; i < uuidLen; i++) {
+                        view.setUint8(3 + i, this.uuid.charCodeAt(uuidLen - i - 1) ^ ryMod);
+                    }
+                    
+                    // Capture XOR scrambling key for the following packets
+                    this.xorKey = view.getUint8(3 + (0x151 % uuidLen));
+                    this.send(ws, new Uint8Array(buf));
+                };
+
+                ws.onmessage = (msg) => {
+                    let data = new DataView(msg.data);
+                    let packetId = data.getUint8(0);
+                    
+                    // incoming 3 is 'loggedIn'
+                    if (packetId === 3 && !this.isLoggedIn) {
+                        this.isLoggedIn = true;
+                        
+                        setTimeout(() => {
+                            // Send Spawn Packet
+                            let nameBytes = new TextEncoder().encode(this.name.slice(0, 16));
+                            let spawnBuf = new Uint8Array(2 + nameBytes.length);
+                            spawnBuf[0] = 0; // joinGame
+                            spawnBuf[1] = Math.floor(Math.random() * 6); // random character color
+                            spawnBuf.set(nameBytes, 2);
+                            this.send(ws, spawnBuf);
+
+                            setTimeout(() => {
+                                // Send Clan Join Request
+                                let clanBuf = new Uint8Array([6, this.clanId]); // iClanJoinReq
+                                this.send(ws, clanBuf);
+                                
+                                setTimeout(() => {
+                                    ws.close();
+                                    resolve(true);
+                                }, 300); // Give the server a moment to receive before terminating
+                            }, 500); // Wait 500ms after spawn before requesting
+                        }, 500); // Wait 500ms after login to spawn
+                    }
+                };
+
+                ws.onerror = () => resolve(false);
+                ws.onclose = () => resolve(false);
+                
+                // Fallback timeout
+                setTimeout(() => {
+                    if (ws.readyState === WebSocket.OPEN) ws.close();
+                    resolve(false);
+                }, 5000);
+            });
+        }
+    }
+
     const autoplayBot = {
         active: false,
         targetX: 0,
@@ -5852,7 +5947,7 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
         autoRespawnActive: false,
         noIframesActive: false,
         coordsActive: true,
-        detailsActive: false, // New Details UI Toggle
+        detailsActive: false,
 
         // UI State Variables
         iframeDropped: false,
@@ -5886,6 +5981,100 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             return (val * this.gridSize) - this.gridOffset + (this.gridSize / 2);
         },
 
+        openXsmMenu: function() {
+            if (document.getElementById("xsm-menu")) return;
+
+            let menu = document.createElement("div");
+            menu.id = "xsm-menu";
+            menu.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);background:#222;color:#fff;padding:20px;border-radius:8px;z-index:99999;width:300px;font-family:sans-serif;box-shadow:0 0 15px rgba(0,0,0,0.8); border: 2px solid #555;";
+
+            menu.innerHTML = `
+                <h3 style="margin-top:0;text-align:center;">XSM Clan Request Bot</h3>
+                <div id="xsm-names-container" style="max-height:200px;overflow-y:auto;margin-bottom:10px;">
+                    <div style="display:flex;gap:5px;margin-bottom:5px;" class="xsm-name-row">
+                        <input type="text" placeholder="Bot Name" class="xsm-name-input" style="flex:1;padding:5px;background:#333;color:#fff;border:1px solid #444;outline:none;">
+                        <button class="xsm-rem-btn" style="padding:5px 10px;background:#c0392b;color:#fff;border:none;cursor:pointer;font-weight:bold;">X</button>
+                    </div>
+                </div>
+                <button id="xsm-add-btn" style="width:100%;padding:8px;margin-bottom:10px;background:#2980b9;color:#fff;border:none;cursor:pointer;font-weight:bold;transition:0.2s;">+ Add Name</button>
+                <div style="margin-bottom:15px;">
+                    <label style="font-size:12px;color:#aaa;">Target Clan ID:</label>
+                    <input type="number" id="xsm-clan-id" placeholder="0" style="width:100%;padding:8px;box-sizing:border-box;background:#333;color:#fff;border:1px solid #444;outline:none;margin-top:5px;">
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button id="xsm-run-btn" style="flex:1;padding:10px;background:#27ae60;color:#fff;border:none;cursor:pointer;font-weight:bold;">Run</button>
+                    <button id="xsm-close-btn" style="flex:1;padding:10px;background:#7f8c8d;color:#fff;border:none;cursor:pointer;font-weight:bold;">Close</button>
+                </div>
+                <div id="xsm-status" style="margin-top:15px;font-size:13px;text-align:center;color:#f1c40f;font-weight:bold;"></div>
+            `;
+
+            document.body.appendChild(menu);
+
+            // Add new row logic
+            menu.querySelector("#xsm-add-btn").onclick = () => {
+                let row = document.createElement("div");
+                row.className = "xsm-name-row";
+                row.style.cssText = "display:flex;gap:5px;margin-bottom:5px;";
+                row.innerHTML = `
+                    <input type="text" placeholder="Bot Name" class="xsm-name-input" style="flex:1;padding:5px;background:#333;color:#fff;border:1px solid #444;outline:none;">
+                    <button class="xsm-rem-btn" style="padding:5px 10px;background:#c0392b;color:#fff;border:none;cursor:pointer;font-weight:bold;">X</button>
+                `;
+                row.querySelector(".xsm-rem-btn").onclick = () => row.remove();
+                document.getElementById("xsm-names-container").appendChild(row);
+                document.getElementById("xsm-names-container").scrollTop = document.getElementById("xsm-names-container").scrollHeight;
+            };
+
+            // Remove logic for first default row
+            menu.querySelector(".xsm-rem-btn").onclick = function() {
+                this.parentElement.remove();
+            };
+
+            // Close Menu
+            menu.querySelector("#xsm-close-btn").onclick = () => menu.remove();
+
+            // Run Bots
+            menu.querySelector("#xsm-run-btn").onclick = async () => {
+                let runBtn = menu.querySelector("#xsm-run-btn");
+                let status = menu.querySelector("#xsm-status");
+                
+                let clanId = parseInt(menu.querySelector("#xsm-clan-id").value);
+                if (isNaN(clanId) || clanId < 0) {
+                    status.innerText = "Invalid Clan ID!";
+                    return;
+                }
+
+                let inputs = menu.querySelectorAll(".xsm-name-input");
+                let names = Array.from(inputs).map(i => i.value.trim()).filter(n => n.length > 0);
+
+                if (names.length === 0) {
+                    status.innerText = "No names provided!";
+                    return;
+                }
+
+                if (typeof _0x419dc9 === "undefined" || !_0x419dc9 || !_0x419dc9.url) {
+                    status.innerText = "Not connected to any server!";
+                    return;
+                }
+                
+                let serverUrl = _0x419dc9.url;
+
+                runBtn.disabled = true;
+                runBtn.style.opacity = "0.5";
+
+                for (let i = 0; i < names.length; i++) {
+                    status.innerText = `Running (${i+1}/${names.length}): ${names[i]}...`;
+                    
+                    let bot = new XsmBot(serverUrl, names[i], clanId);
+                    await bot.run();
+                }
+
+                status.innerText = "All bots finished sequentially!";
+                status.style.color = "#2ecc71";
+                runBtn.disabled = false;
+                runBtn.style.opacity = "1";
+            };
+        },
+
         handleCommand: function(msg) {
             if (!msg) return;
             let parts = msg.trim().split(" ");
@@ -5905,6 +6094,7 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                                "/zoom [val] - " + this.zoomVal + "x\n" +
                                "/reqmats [count] - " + (this.reqmatsRemaining > 0 ? this.reqmatsRemaining + " remaining" : "Inactive") + "\n\n" +
                                "--- Actions ---\n" +
+                               "/xsm - Open XSM Clan Request Bot Menu\n" +
                                "/goto [x] [y]\n" +
                                "/stop\n" +
                                "/leave [id]\n" +
@@ -5915,6 +6105,9 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                                "/deleteclan\n" + 
                                "/server [alias/url] - Connect to us1, us2, eu1, eu2, or WS URL";
                 alert(helpText);
+            }
+            else if (cmd === "/xsm") {
+                this.openXsmMenu();
             }
             else if (cmd === "/goto" && parts.length >= 3) {
                 this.targetX = parseFloat(parts[1]);
@@ -6447,7 +6640,7 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
     document.addEventListener("keydown", (e) => {
         if (e.altKey && e.code === "KeyK") {
             e.preventDefault();
-            let cmd = prompt("Enter bot command (e.g. /zoom 1.5, /autorespawn true, /reqmats 5, /server eu2):");
+            let cmd = prompt("Enter bot command (e.g. /zoom 1.5, /xsm, /autorespawn true, /reqmats 5, /server eu2):");
             if (cmd) autoplayBot.handleCommand(cmd);
         }
     });
