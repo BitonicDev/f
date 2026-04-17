@@ -5892,38 +5892,86 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
 
             let menu = document.createElement("div");
             menu.id = "xsm-menu";
-            menu.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);background:#222;color:#fff;padding:20px;border-radius:8px;z-index:99999;width:300px;font-family:sans-serif;box-shadow:0 0 15px rgba(0,0,0,0.8); border: 2px solid #555;";
+            menu.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);background:#1e1e24;width:320px;border-radius:10px;z-index:99999;font-family:sans-serif;box-shadow:0 10px 30px rgba(0,0,0,0.7);border:1px solid #333;overflow:hidden;";
 
             menu.innerHTML = `
-                <h3 style="margin-top:0;text-align:center;">XSM Clan Request Bot</h3>
-                <div id="xsm-names-container" style="max-height:200px;overflow-y:auto;margin-bottom:10px;">
-                    <div style="display:flex;gap:5px;margin-bottom:5px;" class="xsm-name-row">
-                        <input type="text" placeholder="Bot Name" class="xsm-name-input" style="flex:1;padding:5px;background:#333;color:#fff;border:1px solid #444;outline:none;">
-                        <button class="xsm-rem-btn" style="padding:5px 10px;background:#c0392b;color:#fff;border:none;cursor:pointer;font-weight:bold;">X</button>
+                <div id="xsm-header" style="background:#2a2a35;padding:12px;cursor:grab;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="margin:0;color:#fff;font-size:16px;">XSM Clan Request Bot</h3>
+                    <button id="xsm-close-x" style="background:transparent;border:none;color:#aaa;cursor:pointer;font-size:18px;line-height:1;">&times;</button>
+                </div>
+                <div style="padding:15px;">
+                    <div id="xsm-names-container" style="max-height:180px;overflow-y:auto;margin-bottom:10px;padding-right:5px;">
+                        <div class="xsm-name-row" style="display:flex;gap:5px;margin-bottom:8px;">
+                            <input type="text" placeholder="Bot Name" class="xsm-name-input" style="flex:1;padding:8px;background:#111;color:#fff;border:1px solid #333;border-radius:4px;outline:none;">
+                            <button class="xsm-rem-btn" style="padding:0 12px;background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">X</button>
+                        </div>
                     </div>
+                    <button id="xsm-add-btn" style="width:100%;padding:10px;background:#3a3a4a;color:#fff;border:1px solid #4a4a5a;border-radius:5px;cursor:pointer;margin-bottom:15px;font-weight:bold;transition:0.2s;">+ Add Name</button>
+                    
+                    <div style="margin-bottom:15px;">
+                        <label style="font-size:12px;color:#aaa;margin-bottom:5px;display:block;">Target Clan ID:</label>
+                        <input type="number" id="xsm-clan-id" placeholder="e.g. 0" style="width:100%;padding:10px;box-sizing:border-box;background:#111;color:#fff;border:1px solid #333;border-radius:5px;outline:none;">
+                    </div>
+                    
+                    <div style="display:flex;gap:10px;">
+                        <button id="xsm-run-btn" style="flex:1;padding:12px;background:#2ecc71;color:#111;border:none;border-radius:5px;cursor:pointer;font-weight:bold;font-size:14px;transition:0.2s;">Run Sequence</button>
+                    </div>
+                    
+                    <div id="xsm-status" style="margin-top:15px;font-size:12px;text-align:center;color:#f1c40f;font-weight:bold;min-height:15px;"></div>
                 </div>
-                <button id="xsm-add-btn" style="width:100%;padding:8px;margin-bottom:10px;background:#2980b9;color:#fff;border:none;cursor:pointer;font-weight:bold;transition:0.2s;">+ Add Name</button>
-                <div style="margin-bottom:15px;">
-                    <label style="font-size:12px;color:#aaa;">Target Clan ID:</label>
-                    <input type="number" id="xsm-clan-id" placeholder="0" style="width:100%;padding:8px;box-sizing:border-box;background:#333;color:#fff;border:1px solid #444;outline:none;margin-top:5px;">
-                </div>
-                <div style="display:flex;gap:10px;">
-                    <button id="xsm-run-btn" style="flex:1;padding:10px;background:#27ae60;color:#fff;border:none;cursor:pointer;font-weight:bold;">Run</button>
-                    <button id="xsm-close-btn" style="flex:1;padding:10px;background:#7f8c8d;color:#fff;border:none;cursor:pointer;font-weight:bold;">Close</button>
-                </div>
-                <div id="xsm-status" style="margin-top:15px;font-size:13px;text-align:center;color:#f1c40f;font-weight:bold;"></div>
             `;
 
             document.body.appendChild(menu);
+
+            // Drag logic
+            let header = menu.querySelector("#xsm-header");
+            let isDragging = false;
+            let offsetX = 0, offsetY = 0;
+
+            const onMouseMove = (e) => {
+                if (!isDragging) return;
+                menu.style.left = (e.clientX - offsetX) + "px";
+                menu.style.top = (e.clientY - offsetY) + "px";
+            };
+
+            const onMouseUp = () => {
+                isDragging = false;
+                header.style.cursor = "grab";
+            };
+
+            header.addEventListener("mousedown", (e) => {
+                isDragging = true;
+                let rect = menu.getBoundingClientRect();
+                // Convert transform to absolute px on first grab to avoid jumping
+                if (menu.style.transform) {
+                    menu.style.transform = "none";
+                    menu.style.left = rect.left + "px";
+                    menu.style.top = rect.top + "px";
+                }
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
+                header.style.cursor = "grabbing";
+            });
+
+            document.addEventListener("mousemove", onMouseMove);
+            document.addEventListener("mouseup", onMouseUp);
+
+            const closeMenu = () => {
+                document.removeEventListener("mousemove", onMouseMove);
+                document.removeEventListener("mouseup", onMouseUp);
+                menu.remove();
+            };
+
+            menu.querySelector("#xsm-close-x").onclick = closeMenu;
 
             // Add new row logic
             menu.querySelector("#xsm-add-btn").onclick = () => {
                 let row = document.createElement("div");
                 row.className = "xsm-name-row";
-                row.style.cssText = "display:flex;gap:5px;margin-bottom:5px;";
+                row.style.cssText = "display:flex;gap:5px;margin-bottom:8px;";
                 row.innerHTML = `
-                    <input type="text" placeholder="Bot Name" class="xsm-name-input" style="flex:1;padding:5px;background:#333;color:#fff;border:1px solid #444;outline:none;">
-                    <button class="xsm-rem-btn" style="padding:5px 10px;background:#c0392b;color:#fff;border:none;cursor:pointer;font-weight:bold;">X</button>
+                    <input type="text" placeholder="Bot Name" class="xsm-name-input" style="flex:1;padding:8px;background:#111;color:#fff;border:1px solid #333;border-radius:4px;outline:none;">
+                    <button class="xsm-rem-btn" style="padding:0 12px;background:#e74c3c;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">X</button>
                 `;
                 row.querySelector(".xsm-rem-btn").onclick = () => row.remove();
                 document.getElementById("xsm-names-container").appendChild(row);
@@ -5934,9 +5982,6 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
             menu.querySelector(".xsm-rem-btn").onclick = function() {
                 this.parentElement.remove();
             };
-
-            // Close Menu
-            menu.querySelector("#xsm-close-btn").onclick = () => menu.remove();
 
             // Run Bots
             menu.querySelector("#xsm-run-btn").onclick = async () => {
@@ -5968,6 +6013,7 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                 runBtn.style.opacity = "0.5";
 
                 status.innerText = "Connecting all bots...";
+                status.style.color = "#f1c40f";
 
                 let bots = [];
 
@@ -6005,7 +6051,7 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                     setTimeout(() => res(), 5000); // 5s timeout fallback
                 })));
 
-                // 2. Sequential Execution to guarantee order
+                // 2. Sequential Execution to guarantee exact server-side ordering
                 status.innerText = "Executing requests in order...";
                 for (let i = 0; i < bots.length; i++) {
                     let bot = bots[i];
@@ -6033,11 +6079,12 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
                     // Clan Join packet
                     send([6, clanId]);
 
-                    // Instantly disconnect
-                    bot.ws.close();
-
-                    // Wait for the next bot to ensure strict ordering at the server level
+                    // Wait exactly 50ms before moving to the next bot.
+                    // This allows TCP to flush and ensures strict sequence.
                     await new Promise(r => setTimeout(r, 50)); 
+                    
+                    // Safely close connection after packet has sent
+                    bot.ws.close();
                 }
 
                 status.innerText = "All bots finished sequentially!";
