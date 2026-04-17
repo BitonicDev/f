@@ -5812,6 +5812,80 @@ if (_0xe25b7c && _0x466240 && window.lastPacketTime && (_0x4e1609 - window.lastP
     window.connect = _0x101619;
     _0x17eee1.style.display = _0x1e6d5b.style.display = 'none';
     _0x2fc9ad.appendChild(_0x3ea805);
+// === AUTOPLAY BOT ===
+
+    const autoplayBot = {
+        active: false,
+        targetX: 0,
+        targetY: 0,
+        path: [],
+        lastPathTime: 0,
+        gridSize: 100, // Coarse grid for fast A* processing
+        mapSize: _0xca1cdc.KN || 10000, 
+        gridOffset: 1000, // Expanded bounds to allow pathfinding outside the map
+        
+        // Stream variables
+        streamTargetId: null,
+        lastStreamTime: 0,
+        streamInterval: 5000, // 5 seconds (standard server gift throttle)
+
+        // AutoEMP variables
+        autoEmpActive: false,
+        isEmpForced: false,
+        prevHatId: -1,
+
+        // AutoCactus variables
+        autoCactusActive: false,
+
+        // New feature variables
+        autoChatActive: false,
+        autoEatActive: false,
+        zoomVal: 1,
+
+        // Chat delay tracking variable
+        lastChatTime: 0,
+
+        // ReqMats Loop Variables
+        reqmatsRemaining: 0,
+        lastReqmatsTime: 0,
+
+        // UI Toggles
+        autoRespawnActive: false,
+        noIframesActive: false,
+        coordsActive: true,
+        detailsActive: false, // New Details UI Toggle
+
+        // UI State Variables
+        iframeDropped: false,
+        iframeDropping: false,
+        coordsEl: null,
+        coordsText: null,
+        detailsEl: null,
+        detailsText: null,
+
+        // Telemetry Variables
+        frameCount: 0,
+        currentFps: 0,
+        lastFpsTime: Date.now(),
+        lastPingTime: 0,
+        currentPing: 0,
+        waitingForPing: false,
+
+        // Resolves the ID of the Bat (best for digging)
+        getBatId: function() {
+            for (let i = 0; i < _0xca1cdc.ev.length; i++) {
+                if (_0xca1cdc.ev[i] && _0xca1cdc.ev[i].name === "Bat") return _0xca1cdc.ev[i].id;
+            }
+            return 2; // Fallback ID
+        },
+
+        // Coordinate to Grid conversions
+        worldToGrid: function(val) {
+            return Math.floor((val + this.gridOffset) / this.gridSize);
+        },
+        gridToWorld: function(val) {
+            return (val * this.gridSize) - this.gridOffset + (this.gridSize / 2);
+        },
 openXsmMenu: function() {
     if (document.getElementById("xsm-menu")) return;
 
@@ -6038,6 +6112,594 @@ openXsmMenu: function() {
         setTimeout(() => { status.innerText = ""; status.style.color = "#f1c40f"; }, 3000);
     };
 },
+        handleCommand: function(msg) {
+            if (!msg) return;
+            let parts = msg.trim().split(" ");
+            let cmd = parts[0].toLowerCase();
+
+            if (cmd === "/help") {
+                let helpText = "=== Bot Commands & Status ===\n\n" +
+                               "--- Toggles ---\n" +
+                               "/autoemp [bool] - " + (this.autoEmpActive ? "ON" : "OFF") + "\n" +
+                               "/autocactus [bool] - " + (this.autoCactusActive ? "ON" : "OFF") + "\n" +
+                               "/autochat [bool] - " + (this.autoChatActive ? "ON" : "OFF") + "\n" +
+                               "/autoeat [bool] - " + (this.autoEatActive ? "ON" : "OFF") + "\n" +
+                               "/autorespawn [bool] - " + (this.autoRespawnActive ? "ON" : "OFF") + "\n" +
+                               "/noiframes [bool] - " + (this.noIframesActive ? "ON" : "OFF") + "\n" +
+                               "/coords [bool] - " + (this.coordsActive ? "ON" : "OFF") + "\n" +
+                               "/details [bool] - " + (this.detailsActive ? "ON" : "OFF") + "\n" +
+                               "/zoom [val] - " + this.zoomVal + "x\n" +
+                               "/reqmats [count] - " + (this.reqmatsRemaining > 0 ? this.reqmatsRemaining + " remaining" : "Inactive") + "\n\n" +
+                               "--- Actions ---\n" +
+                               "/xsm - Open XSM Clan Request Bot Menu\n" +
+                               "/goto [x] [y]\n" +
+                               "/stop\n" +
+                               "/leave [id]\n" +
+                               "/stream [id]\n" +
+                               "/gift [id] [pct]\n" +
+                               "/account [user]\n" +
+                               "/kick [id]\n" +
+                               "/deleteclan\n" + 
+                               "/server [alias/url] - Connect to us1, us2, eu1, eu2, or WS URL";
+                alert(helpText);
+            }
+            else if (cmd === "/xsm") {
+                this.openXsmMenu();
+            }
+            else if (cmd === "/goto" && parts.length >= 3) {
+                this.targetX = parseFloat(parts[1]);
+                this.targetY = parseFloat(parts[2]);
+                this.active = true;
+                _0x336d9a("Autoplay: Navigating to " + this.targetX + ", " + this.targetY);
+            } 
+            else if (cmd === "/stop") {
+                this.active = false;
+                this.streamTargetId = null; 
+                this.autoEmpActive = false;
+                this.autoChatActive = false;
+                this.autoEatActive = false;
+                this.reqmatsRemaining = 0;
+                this.resetKeys();
+                _0x336d9a("Autoplay: Stopped");
+            } 
+            else if (cmd === "/leave" && parts.length >= 2) {
+                let targetId = parseInt(parts[1]);
+                if (!isNaN(targetId)) {
+                    if (this.sendGift(targetId, 1.0)) { 
+                        _0x336d9a("Gifted mats. Reconnecting...");
+                        setTimeout(() => {
+                            if (_0x419dc9 && _0x419dc9.url) {
+                                window.connect(_0x419dc9.url);
+                            }
+                        }, 100);
+                    }
+                }
+            }
+            else if (cmd === "/stream" && parts.length >= 2) {
+                let targetId = parseInt(parts[1]);
+                if (!isNaN(targetId)) {
+                    let members = _0x311e82.children;
+                    if (members.length <= 1 || targetId < 0 || targetId >= members.length || members[targetId].isMe) {
+                        _0x336d9a("Stream Refused: Invalid clan member.");
+                    } else {
+                        this.streamTargetId = targetId;
+                        this.lastStreamTime = 0; 
+                        _0x336d9a("Autoplay: Streaming mats to member " + targetId);
+                    }
+                }
+            }
+            else if (cmd === "/gift" && parts.length >= 2) {
+                let targetId = parseInt(parts[1]);
+                let pct = parts.length >= 3 ? parseFloat(parts[2]) : 50; 
+                if (isNaN(pct) || pct <= 0 || pct > 100) pct = 50;
+                
+                if (!isNaN(targetId)) {
+                    if (this.sendGift(targetId, pct / 100)) {
+                        _0x336d9a(`Gifted ${pct}% of mats to member ${targetId}`);
+                    }
+                }
+            }
+            else if (cmd === "/account" && parts.length >= 2) {
+                let accountName = parts.slice(1).join(" ");
+                if (accountName) {
+                    __originalSend(new Uint8Array([_0xca1cdc.wT.iAccountDataReq, ...new TextEncoder().encode(accountName)]));
+                    _0x336d9a("Requesting " + accountName + "'s profile...");
+                }
+            }
+            else if (cmd === "/autoemp" && parts.length >= 2) {
+                let state = parts[1].toLowerCase() === "true";
+                this.autoEmpActive = state;
+                this.isEmpForced = false;
+                if (state && _0x466240) {
+                    this.prevHatId = _0x466240.skin ? _0x466240.skin.id : -1;
+                }
+                _0x336d9a("AutoEMP: " + (state ? "ON" : "OFF"));
+            }
+            else if (cmd === "/autocactus" && parts.length >= 2) {
+                let state = parts[1].toLowerCase() === "true";
+                this.autoCactusActive = state;
+                _0x336d9a("AutoCactus: " + (state ? "ON" : "OFF"));
+            }
+            else if (cmd === "/autochat" && parts.length >= 2) {
+                let state = parts[1].toLowerCase() === "true";
+                this.autoChatActive = state;
+                if (state) {
+                    this.lastChatTime = 0; // Trigger immediately
+                }
+                _0x336d9a("AutoChat: " + (state ? "ON" : "OFF"));
+            }
+            else if (cmd === "/autoeat" && parts.length >= 2) {
+                let state = parts[1].toLowerCase() === "true";
+                this.autoEatActive = state;
+                _0x336d9a("AutoEat: " + (state ? "ON" : "OFF"));
+            }
+            else if (cmd === "/autorespawn" && parts.length >= 2) {
+                this.autoRespawnActive = parts[1].toLowerCase() === "true";
+                _0x336d9a("AutoRespawn: " + (this.autoRespawnActive ? "ON" : "OFF"));
+            }
+            else if (cmd === "/noiframes" && parts.length >= 2) {
+                this.noIframesActive = parts[1].toLowerCase() === "true";
+                _0x336d9a("NoIframes: " + (this.noIframesActive ? "ON" : "OFF"));
+            }
+            else if (cmd === "/coords" && parts.length >= 2) {
+                this.coordsActive = parts[1].toLowerCase() === "true";
+                if (this.coordsEl) this.coordsEl.style.display = this.coordsActive ? "" : "none";
+                _0x336d9a("Coords: " + (this.coordsActive ? "ON" : "OFF"));
+            }
+            else if (cmd === "/details" && parts.length >= 2) {
+                this.detailsActive = parts[1].toLowerCase() === "true";
+                if (this.detailsEl) this.detailsEl.style.display = this.detailsActive ? "" : "none";
+                _0x336d9a("Details: " + (this.detailsActive ? "ON" : "OFF"));
+            }
+            else if (cmd === "/zoom" && parts.length >= 2) {
+                let val = parseFloat(parts[1]);
+                if (!isNaN(val) && val > 0) {
+                    this.zoomVal = val;
+                    _0x336d9a("Zoom set to: " + val + "x");
+                }
+            }
+            else if (cmd === "/reqmats") {
+                let count = parts.length >= 2 ? parseInt(parts[1]) : 1;
+                if (isNaN(count) || count < 1) count = 1;
+                
+                this.reqmatsRemaining = count;
+                this.lastReqmatsTime = 0; // Force immediate trigger
+                _0x336d9a(`Auto-ReqMats started (${count} times).`);
+            }
+            else if (cmd === "/kick" && parts.length >= 2) {
+                let targetId = parseInt(parts[1]);
+                if (!isNaN(targetId)) {
+                    __originalSend(new Uint8Array([_0xca1cdc.wT.iClanKick, targetId]));
+                    _0x336d9a("Sent kick packet for member " + targetId);
+                }
+            }
+            else if (cmd === "/deleteclan") {
+                let members = _0x311e82.children;
+                if (members) {
+                    // Kick everyone except me
+                    for (let i = members.length - 1; i >= 0; i--) {
+                        if (!members[i].isMe) {
+                            __originalSend(new Uint8Array([_0xca1cdc.wT.iClanKick, i]));
+                        }
+                    }
+                }
+                // Leave clan
+                __originalSend(new Uint8Array([_0xca1cdc.wT.iClanLeave]));
+                _0x336d9a("Deleted clan (kicked all and left).");
+            }
+            else if (cmd === "/server" && parts.length >= 2) {
+                let arg = parts[1].toLowerCase();
+                let url = "";
+                if (arg === "eu1") url = "wss://eu.poopoo.pro";
+                else if (arg === "eu2") url = "wss://eu2.poopoo.pro";
+                else if (arg === "us1") url = "wss://us.poopoo.pro";
+                else if (arg === "us2") url = "wss://us2.poopoo.pro";
+                else if (arg.includes("://")) url = parts[1];
+                
+                if (url) {
+                    _0x336d9a("Connecting to server: " + url);
+                    if (window.connect) window.connect(url);
+                } else {
+                    _0x336d9a("Invalid server alias/URL. Use us1, us2, eu1, eu2, or full WS URL.");
+                }
+            }
+        },
+
+        sendGift: function(targetId, mult = 1.0) {
+            let members = _0x311e82.children; 
+            if (members.length <= 1) {
+                _0x336d9a("Action Refused: No one else in the clan.");
+                return false;
+            }
+            if (targetId < 0 || targetId >= members.length) {
+                _0x336d9a("Action Refused: Invalid clan member ID.");
+                return false;
+            }
+            if (members[targetId].isMe) {
+                _0x336d9a("Action Refused: You cannot gift to yourself.");
+                return false;
+            }
+
+            let mask = 0;
+            let vals = [];
+            let f = Math.floor(_0x5cb651 * mult);
+            let w = Math.floor(_0x475a45 * mult);
+            let s = Math.floor(_0x505bb2 * mult);
+            let g = Math.floor(_0x4e3cab * mult);
+
+            if (f > 0) { mask |= 1; vals.push(f); } 
+            if (w > 0) { mask |= 2; vals.push(w); } 
+            if (s > 0) { mask |= 4; vals.push(s); } 
+            if (g > 0) { mask |= 8; vals.push(g); } 
+
+            if (mask > 0) {
+                let buffer = new ArrayBuffer(3 + vals.length * 4);
+                let view = new DataView(buffer);
+                view.setUint8(0, _0xca1cdc.wT.iGift); 
+                view.setUint8(1, targetId);
+                view.setUint8(2, mask);
+                let offset = 3;
+                for (let v of vals) {
+                    view.setUint32(offset, v);
+                    offset += 4;
+                }
+                __originalSend(new Uint8Array(buffer));
+                return true;
+            }
+            return false;
+        },
+
+        resetKeys: function() {
+            _0x4cfb62.KeyW = false;
+            _0x4cfb62.KeyS = false;
+            _0x4cfb62.KeyA = false;
+            _0x4cfb62.KeyD = false;
+            _0x4cfb62.mouse0 = false;
+            _0x4cfb62.ShiftLeft = false;
+            _0x5629b9(); 
+        },
+
+        buildGrid: function() {
+            let cells = Math.ceil((this.mapSize + (this.gridOffset * 2)) / this.gridSize);
+            let grid = new Uint8Array(cells * cells);
+            for (let i = 0; i < _0x5a712e.length; i++) {
+                let ent = _0x5a712e[i];
+                if (ent === _0x466240 || ent.isDead) continue;
+                if (!ent.isPlayer && !ent.isProj && !ent.isDisplay && !ent.isHole && ent.type !== 6) {
+                    let cx = this.worldToGrid(ent.x);
+                    let cy = this.worldToGrid(ent.y);
+                    let radius = Math.ceil(((ent.size || 40) + 40) / this.gridSize); 
+                    for (let dx = -radius; dx <= radius; dx++) {
+                        for (let dy = -radius; dy <= radius; dy++) {
+                            let nx = cx + dx, ny = cy + dy;
+                            if (nx >= 0 && nx < cells && ny >= 0 && ny < cells) {
+                                grid[nx + ny * cells] = 1; 
+                            }
+                        }
+                    }
+                }
+            }
+            return { grid, cells };
+        },
+
+        aStar: function(startX, startY, goalX, goalY) {
+            let { grid, cells } = this.buildGrid();
+            startX = Math.max(0, Math.min(cells - 1, startX));
+            startY = Math.max(0, Math.min(cells - 1, startY));
+            goalX = Math.max(0, Math.min(cells - 1, goalX));
+            goalY = Math.max(0, Math.min(cells - 1, goalY));
+            let openSet = [{x: startX, y: startY, g: 0, f: 0, parent: null}];
+            let closedSet = new Uint8Array(cells * cells);
+            while(openSet.length > 0) {
+                let minIndex = 0;
+                for (let i = 1; i < openSet.length; i++) {
+                    if (openSet[i].f < openSet[minIndex].f) minIndex = i;
+                }
+                let current = openSet.splice(minIndex, 1)[0];
+                if (current.x === goalX && current.y === goalY) {
+                    let path = [];
+                    let curr = current;
+                    while(curr) {
+                        path.push({x: curr.x, y: curr.y});
+                        curr = curr.parent;
+                    }
+                    return path.reverse();
+                }
+                let idx = current.x + current.y * cells;
+                if(closedSet[idx]) continue;
+                closedSet[idx] = 1;
+                let neighbors = [{x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0}, {x: -1, y: -1}, {x: 1, y: -1}, {x: -1, y: 1}, {x: 1, y: 1}];
+                for(let n of neighbors) {
+                    let nx = current.x + n.x;
+                    let ny = current.y + n.y;
+                    if(nx < 0 || ny < 0 || nx >= cells || ny >= cells) continue;
+                    if(grid[nx + ny * cells] === 1) continue; 
+                    let gCost = current.g + (n.x !== 0 && n.y !== 0 ? 1.414 : 1);
+                    let hCost = Math.hypot(goalX - nx, goalY - ny) * 1.2; 
+                    let fCost = gCost + hCost;
+                    openSet.push({x: nx, y: ny, g: gCost, f: fCost, parent: current});
+                }
+            }
+            return null;
+        },
+
+        update: function() {
+            let now = Date.now();
+
+            // Calculate Ping (Roundtrip from our tracked iPing)
+            if (this.waitingForPing && window.lastPacketTime > this.lastPingTime) {
+                this.currentPing = window.lastPacketTime - this.lastPingTime;
+                this.waitingForPing = false;
+            }
+
+            // Zoom hook intercept
+            if (_0x466240) {
+                if (!_0x466240.skin) {
+                    // Create a mock skin object for the engine to read if currently none
+                    _0x466240.skin = { name: "mock_zoom", id: -1, viewScale: this.zoomVal };
+                } else {
+                    // Backup original scale logic and multiply it by our modifier
+                    if (typeof _0x466240.skin.origViewScale === "undefined") {
+                        _0x466240.skin.origViewScale = _0x466240.skin.viewScale || 1;
+                    }
+                    _0x466240.skin.viewScale = _0x466240.skin.origViewScale * this.zoomVal;
+                }
+            }
+
+            // --- 1. AutoRespawn (Triggers UI clicks to properly cycle states) ---
+            if (this.autoRespawnActive && !_0x466240) {
+                // Ensure we aren't at the disconnected / alert screen before clicking
+                let alertVisible = _0x2885af && _0x2885af.style.display !== "none";
+                if (!alertVisible) {
+                    // If death screen overlay is visible
+                    if (_0x17eee1 && _0x17eee1.style.display === "") {
+                        if (_0x2867cc) _0x2867cc.click(); // Click continue
+                    } 
+                    // If main menu is visible
+                    else if (_0x2fc9ad && _0x2fc9ad.style.display === "") {
+                        if (_0x3ee957) _0x3ee957.click(); // Click play
+                    }
+                }
+            }
+
+            // --- 2. NoIframes (Simulate attack micro-click to drop immunity safely) ---
+            if (this.noIframesActive && _0x466240 && _0x466240.spawnImmunity) {
+                if (!this.iframeDropped && !this.iframeDropping) {
+                    this.iframeDropping = true;
+                    // Gather real physical inputs
+                    let currentState = (_0x4cfb62.KeyW || _0x4cfb62.ArrowUp ? 0x1 : 0x0) | (_0x4cfb62.KeyS || _0x4cfb62.ArrowDown ? 0x2 : 0x0) | (_0x4cfb62.KeyA || _0x4cfb62.ArrowLeft ? 0x4 : 0x0) | (_0x4cfb62.KeyD || _0x4cfb62.ArrowRight ? 0x8 : 0x0) | (_0x12d5b2 || _0x4cfb62.Space || _0x4cfb62.mouse0 ? 0x10 : 0x0) | (_0x4cfb62.ShiftLeft || _0x4cfb62.ShiftRight ? 0x20 : 0x0) | (_0x4cfb62.mouse2 || _0x5d3d11 ? 0x40 : 0x0);
+                    
+                    // Force attack bit (0x10) to simulate a tap
+                    __originalSend(new Uint8Array([1, currentState | 0x10])); 
+                    
+                    // Restore original state almost instantly (5ms)
+                    setTimeout(() => {
+                        if (_0x466240) {
+                            let newState = (_0x4cfb62.KeyW || _0x4cfb62.ArrowUp ? 0x1 : 0x0) | (_0x4cfb62.KeyS || _0x4cfb62.ArrowDown ? 0x2 : 0x0) | (_0x4cfb62.KeyA || _0x4cfb62.ArrowLeft ? 0x4 : 0x0) | (_0x4cfb62.KeyD || _0x4cfb62.ArrowRight ? 0x8 : 0x0) | (_0x12d5b2 || _0x4cfb62.Space || _0x4cfb62.mouse0 ? 0x10 : 0x0) | (_0x4cfb62.ShiftLeft || _0x4cfb62.ShiftRight ? 0x20 : 0x0) | (_0x4cfb62.mouse2 || _0x5d3d11 ? 0x40 : 0x0);
+                            __originalSend(new Uint8Array([1, newState])); 
+                        }
+                        this.iframeDropped = true;
+                        this.iframeDropping = false;
+                    }, 5);
+                }
+            } else if (_0x466240 && !_0x466240.spawnImmunity) {
+                this.iframeDropped = false;
+                this.iframeDropping = false;
+            }
+
+            // --- 3. Coords ---
+            if (this.coordsActive && _0x466240) {
+                if (!this.coordsEl) {
+                    let killCountSpan = document.querySelector(".kill-count span");
+                    let killCountDiv = killCountSpan ? killCountSpan.parentNode : null;
+                    if (killCountDiv && killCountDiv.parentNode) {
+                        this.coordsEl = document.createElement("div");
+                        this.coordsEl.className = "kill-count bot-coords"; // Reuse existing style
+                        this.coordsEl.style.marginBottom = "5px";
+                        
+                        this.coordsText = document.createElement("span");
+                        this.coordsEl.appendChild(this.coordsText);
+                        
+                        killCountDiv.parentNode.insertBefore(this.coordsEl, killCountDiv);
+                    }
+                }
+                if (this.coordsEl && this.coordsText) {
+                    this.coordsEl.style.display = "";
+                    let cx = Math.round(_0x466240.x);
+                    let cy = Math.round(_0x466240.y);
+                    let cStr = `📌 ${cx}, ${cy}`;
+                    _0x5a0152(this.coordsText, cStr); 
+                }
+            } else if (this.coordsEl) {
+                this.coordsEl.style.display = "none";
+            }
+
+            // --- 4. Details (FPS, Ping, Entity Count) ---
+            if (this.detailsActive && _0x466240) {
+                if (!this.detailsEl) {
+                    let killCountSpan = document.querySelector(".kill-count span");
+                    let killCountDiv = killCountSpan ? killCountSpan.parentNode : null;
+                    if (killCountDiv && killCountDiv.parentNode) {
+                        this.detailsEl = document.createElement("div");
+                        this.detailsEl.className = "kill-count bot-details"; // Reuse existing style
+                        this.detailsEl.style.marginBottom = "5px";
+                        
+                        this.detailsText = document.createElement("span");
+                        this.detailsEl.appendChild(this.detailsText);
+                        
+                        killCountDiv.parentNode.insertBefore(this.detailsEl, killCountDiv);
+                    }
+                }
+                if (this.detailsEl && this.detailsText) {
+                    this.detailsEl.style.display = "";
+                    let numEntities = _0x5a712e ? _0x5a712e.length : 0;
+                    let dStr = `📊 FPS: ${this.currentFps} | Ping: ${this.currentPing}ms | Ent: ${numEntities}`;
+                    _0x5a0152(this.detailsText, dStr); 
+                }
+            } else if (this.detailsEl) {
+                this.detailsEl.style.display = "none";
+            }
+
+            // Auto-ReqMats
+            if (this.reqmatsRemaining > 0) {
+                if (now - this.lastReqmatsTime >= 30500) { // Safely repeats every 30.5 seconds
+                    __originalSend(new Uint8Array([_0xca1cdc.wT.iReqMats])); // Send request packet
+                    this.reqmatsRemaining--;
+                    this.lastReqmatsTime = now;
+                    _0x336d9a(`Requested materials. (${this.reqmatsRemaining} remaining)`);
+                }
+            }
+
+            // AutoChat rate limited to 1 message every 1 second (1000ms)
+            if (this.autoChatActive) {
+                if (now - this.lastChatTime >= 1000) {
+                    let hex = Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+                    __originalSend(new Uint8Array([_0xca1cdc.wT.iChat, ...new TextEncoder().encode(hex)]));
+                    this.lastChatTime = now;
+                }
+            }
+
+            // AutoEat
+            if (this.autoEatActive) {
+                _0x4cfb62.ShiftLeft = true;
+                _0x4cfb62.mouse0 = true;
+                _0x5629b9(); 
+                __originalSend(new Uint8Array([_0xca1cdc.wT.iChangeItem, 4])); // Force equip Apple (ID 4)
+            }
+
+            if (this.autoEmpActive && _0x466240) {
+                let sniperCount = 0, cannonCount = 0;
+                for (let i = 0; i < _0x5a712e.length; i++) {
+                    let ent = _0x5a712e[i];
+                    if (ent.isCannon && !ent.isDead) {
+                        if (Math.hypot(_0x466240.x - ent.x, _0x466240.y - ent.y) < 600) {
+                            if (ent.type === 24) sniperCount++;
+                            else cannonCount++;
+                        }
+                    }
+                }
+                let shouldEmp = sniperCount > 0 || cannonCount > 4;
+                if (shouldEmp && !this.isEmpForced) {
+                    if (_0x466240.skin && _0x466240.skin.name !== "EMP") this.prevHatId = _0x466240.skin.id;
+                    else if (!_0x466240.skin) this.prevHatId = -1;
+                    __originalSend(new Uint8Array([_0xca1cdc.wT.iChangeSkin, 9]));
+                    this.isEmpForced = true;
+                } else if (!shouldEmp && this.isEmpForced) {
+                    let equipId = this.prevHatId !== -1 ? this.prevHatId + 1 : 0;
+                    __originalSend(new Uint8Array([_0xca1cdc.wT.iChangeSkin, equipId]));
+                    this.isEmpForced = false;
+                } else if (!this.isEmpForced) {
+                    if (_0x466240.skin && _0x466240.skin.name !== "EMP") this.prevHatId = _0x466240.skin.id;
+                    else if (!_0x466240.skin) this.prevHatId = -1;
+                }
+            }
+
+            if (this.streamTargetId !== null) {
+                if (now - this.lastStreamTime > this.streamInterval) {
+                    let members = _0x311e82.children;
+                    if (this.streamTargetId >= members.length || members.length <= 1) {
+                        this.streamTargetId = null;
+                        _0x336d9a("Autoplay: Stream ended (target missing)");
+                    } else {
+                        this.sendGift(this.streamTargetId, 1.0); 
+                        this.lastStreamTime = now;
+                    }
+                }
+            }
+
+            if (this.autoCactusActive && _0x5c84b0 && _0x5c84b0.classList.contains("show")) {
+                let f = _0x53bf5e[0] || 0, w = _0x53bf5e[1] || 0, s = _0x53bf5e[2] || 0, g = _0x53bf5e[3] || 0;
+                if (f > 0 || w > 0 || s > 0 || g > 0) {
+                    let buffer = new ArrayBuffer(17);
+                    let view = new DataView(buffer);
+                    let offset = 0;
+                    view.setUint8(offset++, _0xca1cdc.wT.iWithdraw);
+                    view.setUint32(offset, f); offset += 4;
+                    view.setUint32(offset, w); offset += 4;
+                    view.setUint32(offset, s); offset += 4;
+                    view.setUint32(offset, g); offset += 4;
+                    __originalSend(new Uint8Array(buffer));
+                    _0x336d9a(`AutoCactus: Withdrew ${f}F, ${w}W, ${s}S, ${g}G`);
+                    _0x53bf5e[0] = 0; _0x53bf5e[1] = 0; _0x53bf5e[2] = 0; _0x53bf5e[3] = 0;
+                    if (_0x52e53d) _0x52e53d.click(_0x301307);
+                }
+            }
+
+            if (!this.active || !_0x466240) return;
+            let myX = _0x466240.x, myY = _0x466240.y;
+            if (Math.hypot(this.targetX - myX, this.targetY - myY) <= 50) {
+                this.active = false;
+                this.resetKeys();
+                _0x336d9a("Autoplay: Arrived successfully");
+                return;
+            }
+            if (now - this.lastPathTime > 500) {
+                this.path = this.aStar(this.worldToGrid(myX), this.worldToGrid(myY), this.worldToGrid(this.targetX), this.worldToGrid(this.targetY));
+                this.lastPathTime = now;
+            }
+            let wpX = this.targetX, wpY = this.targetY;
+            if (this.path && this.path.length > 0) {
+                let wp = this.path[0];
+                wpX = this.gridToWorld(wp.x); wpY = this.gridToWorld(wp.y);
+                if (Math.hypot(wpX - myX, wpY - myY) < this.gridSize && this.path.length > 1) {
+                    this.path.shift();
+                    wp = this.path[0]; wpX = this.gridToWorld(wp.x); wpY = this.gridToWorld(wp.y);
+                }
+                if (this.path.length === 1) { wpX = this.targetX; wpY = this.targetY; }
+            }
+            let dx = wpX - myX, dy = wpY - myY, angle = Math.atan2(dy, dx);
+            let isDigging = false, borderDist = 60;
+            if (((myX < borderDist && dx < 0) || (myX > this.mapSize - borderDist && dx > 0)) || ((myX < 0 && myX > -borderDist && dx > 0) || (myX > this.mapSize && myX < this.mapSize + borderDist && dx < 0)) || ((myY < borderDist && dy < 0) || (myY > this.mapSize - borderDist && dy > 0)) || ((myY < 0 && myY > -borderDist && dy > 0) || (myY > this.mapSize && myY < this.mapSize + borderDist && dy < 0))) isDigging = true;
+            if (isDigging) {
+                let batId = this.getBatId();
+                if (_0x466240.item && _0x466240.item.id !== batId) _0xb6b4d7(batId);
+                _0x4cfb62.mouse0 = true; _0x965f53(angle);
+            } else _0x4cfb62.mouse0 = false;
+            _0x4cfb62.KeyW = (dy < -20); _0x4cfb62.KeyS = (dy > 20); _0x4cfb62.KeyA = (dx < -20); _0x4cfb62.KeyD = (dx > 20);
+            _0x5629b9();
+        }
+    };
+
+    // Fast loop strictly for catching render FPS via standard requestAnimationFrame API
+    const countFps = () => {
+        let now = Date.now();
+        autoplayBot.frameCount++;
+        if (now - autoplayBot.lastFpsTime >= 1000) {
+            autoplayBot.currentFps = autoplayBot.frameCount;
+            autoplayBot.frameCount = 0;
+            autoplayBot.lastFpsTime = now;
+        }
+        requestAnimationFrame(countFps);
+    };
+    requestAnimationFrame(countFps);
+
+    // Hotkey listener for Command Prompt (Alt + K)
+    document.addEventListener("keydown", (e) => {
+        if (e.altKey && e.code === "KeyK") {
+            e.preventDefault();
+            let cmd = prompt("Enter bot command (e.g. /zoom 1.5, /xsm, /autorespawn true, /reqmats 5, /server eu2):");
+            if (cmd) autoplayBot.handleCommand(cmd);
+        }
+    });
+
+    const __originalSend = _0x2d5e24;
+    _0x2d5e24 = function(packet) {
+        if (packet[0] === _0xca1cdc.wT.iChat) {
+            let msg = new TextDecoder().decode(packet.slice(1));
+            if (msg.startsWith("/")) {
+                autoplayBot.handleCommand(msg);
+                return; 
+            }
+        }
+        // Intercept ping to track packet delay
+        if (packet[0] === _0xca1cdc.wT.iPing) {
+            autoplayBot.lastPingTime = Date.now();
+            autoplayBot.waitingForPing = true;
+        }
+        __originalSend.apply(this, arguments);
+    };
+    setInterval(() => autoplayBot.update(), 1000 / 60);
+// === END AUTOPLAY BOT ===
     _0x3c0ef4();
   })();
 })();
